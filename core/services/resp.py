@@ -341,8 +341,8 @@ def hisobot_sanasi(pdf):
     return None
 
 
-def oqi(manba, fayl_nomi=""):
-    """PDF ni o'qiydi. Qaytaradi: {"sana": date|None, "malumot": {kod: [qatorlar]}, "ogohlantirish": [...], "xato": str|None}"""
+def oqi(manba, fayl_nomi="", jarayon=None):
+    """PDF ni o'qiydi (jarayon(i, n) - har bir jadval o'qilgach chaqiriladi). Qaytaradi: {"sana": date|None, "malumot": {kod: [qatorlar]}, "ogohlantirish": [...], "xato": str|None}"""
     res = {"sana": None, "malumot": {}, "ogohlantirish": [], "xato": None}
     if pdfplumber is None:
         res["xato"] = "PDF o'qish kutubxonasi (pdfplumber) o'rnatilmagan. setup.bat ni qayta ishga tushiring."
@@ -375,7 +375,7 @@ def oqi(manba, fayl_nomi=""):
                             f"Fayl nomidagi sana ({fs:%d.%m.%Y}) PDF ichidagi sana ({res['sana']:%d.%m.%Y}) bilan mos emas; PDF dagi sana olindi.")
                 except ValueError:
                     pass
-        for kod, spec in SAHIFALAR.items():
+        for n_, (kod, spec) in enumerate(SAHIFALAR.items(), 1):
             rows, og = _bet_oqi(pdf.pages[spec["bet"]], kod)
             if rows is None:
                 res["xato"] = f"{spec['bet'] + 1}-betdan ({spec['nom']}) jadval o'qilmadi."
@@ -383,6 +383,8 @@ def oqi(manba, fayl_nomi=""):
             res["malumot"][kod] = rows
             res["ogohlantirish"] += [f"{spec['bet'] + 1}-bet: {x}" for x in og]
             res["ogohlantirish"] += _tekshir(kod, rows)
+            if jarayon:
+                jarayon(n_, len(SAHIFALAR))
     finally:
         pdf.close()
     return res

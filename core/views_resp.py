@@ -3,6 +3,7 @@ import datetime
 import io
 import json
 import os
+import threading
 import uuid
 from pathlib import Path
 
@@ -10,12 +11,15 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db import transaction
-from django.http import FileResponse, Http404, HttpResponse
+from django.contrib.auth.decorators import login_required  # noqa: F401
+from django.contrib.auth.models import User
+from django.db import connection, transaction
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.utils import timezone
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .models import RespKun, RespYuklama
+from .models import RespIsh, RespKun, RespYuklama
 from .permissions import bor, ruxsat_kerak
 from .services import resp as R
 from .services import resp_eksport as RE
@@ -152,8 +156,14 @@ def _qabul(f, user, qol_sana=None):
     if f.size > MAX_HAJM:
         out["xabar"] = "Fayl juda katta (40 MB dan oshmasligi kerak)."
         return out
-    data = f.read()
-    res = R.oqi(io.BytesIO(data), nom)
+    return _oqi_va_saqla(f.read(), nom, user, qol_sana, out=out)
+
+
+def _oqi_va_saqla(data, nom, user, qol_sana=None, jarayon=None, out=None):
+    """PDF baytlarini o'qiydi va saqlaydi. jarayon(bosqich, foiz) - jonli holat uchun (ixtiyoriy)."""
+    out = out or {"fayl": nom, "ok": False, "sana": None, "ogoh": [], "xabar": "", "almashdi": False}
+    cb = (lambda i, n: jarayon(f"{i}/{n}-jadval o'qildi", 8 + int(82 * i / n))) if jarayon else None
+    res = R.oqi(io.BytesIO(data), nom, cb)
     if res["xato"]:
         out["xabar"] = res["xato"]
         return out
@@ -163,6 +173,8 @@ def _qabul(f, user, qol_sana=None):
         return out
     if qol_sana and res["sana"] and qol_sana != res["sana"]:
         res["ogohlantirish"].append(f"Qo'lda kiritilgan sana ({_txt(qol_sana)}) PDF dagi sanadan ({_txt(res['sana'])}) farq qiladi.")
+    if jarayon:
+        jarayon("Saqlanmoqda...", 94)
     papka = _resp_papka() / f"{sana:%Y-%m}"
     os.makedirs(papka, exist_ok=True)
     fayl = papka / f"{sana:%Y-%m-%d}_{uuid.uuid4().hex[:8]}.pdf"
@@ -190,6 +202,8 @@ def resp_yuklash(request):
             messages.error(request, "Fayl tanlanmadi.")
             return redirect("resp_yuklash")
         qol = _iso(request.POST.get("sana")) if len(fayllar) == 1 else None
+        if request.POST.get("fon") == "1":
+            return JsonResponse(_fonga_qosh(fayllar, request.user, qol))
         for f in fayllar:
             natijalar.append(_qabul(f, request.user, qol))
         soni = sum(1 for n in natijalar if n["ok"])
@@ -203,6 +217,78 @@ def resp_yuklash(request):
         y.kb = max(1, round(y.hajm / 1024))
         y.ogoh_soni = len(y.xabar.splitlines()) if y.xabar else 0
     return render(request, "core/resp_yuklash.html", {"natijalar": natijalar, "sahifa": sahifa})
+
+
+# ---------------------------------------------------------------- orqa fonda o'qish (jonli holat)
+ESKIRDI = datetime.timedelta(minutes=30)  # server qayta ishga tushsa, "jarayonda" qolib ketganlarni yopish uchun
+KORSATISH = datetime.timedelta(hours=2)
+
+
+def _ish_yangila(ish, **kw):
+    for k, v_ in kw.items():
+        setattr(ish, k, v_)
+    ish.save(update_fields=list(kw))
+
+
+def _fonga_qosh(fayllar, user, qol_sana):
+    """Fayllarni tekshiradi, jarayon yozuvlarini yaratadi va orqa fonda o'qishni boshlaydi."""
+    navbat = []
+    for f in fayllar:
+        ish = RespIsh.objects.create(fayl_nomi=f.name[:255], hajm=f.size, yuklagan=user)
+        if not f.name.lower().endswith(".pdf"):
+            _ish_yangila(ish, holat="xato", xabar="Faqat PDF fayl qabul qilinadi.", foiz=100, tugadi=timezone.now())
+        elif f.size > MAX_HAJM:
+            _ish_yangila(ish, holat="xato", xabar="Fayl juda katta (40 MB dan oshmasligi kerak).", foiz=100, tugadi=timezone.now())
+        else:
+            navbat.append((ish.id, f.read(), f.name, user.id, qol_sana))
+    if navbat:
+        _fon_boshlash(navbat)
+    return {"ok": True, "soni": len(fayllar)}
+
+
+def _fon_ishchi(navbat):
+    try:
+        for ish_id, data, nom, user_id, qol in navbat:
+            ish = RespIsh.objects.get(pk=ish_id)
+            try:
+                _ish_yangila(ish, holat="jarayonda", bosqich="PDF ochilmoqda...", foiz=3)
+
+                def jarayon(bosqich, foiz, ish=ish):
+                    _ish_yangila(ish, bosqich=bosqich[:120], foiz=min(foiz, 99))
+
+                out = _oqi_va_saqla(data, nom, User.objects.filter(pk=user_id).first(), qol, jarayon)
+                if out["ok"]:
+                    _ish_yangila(ish, holat="ogoh" if out["ogoh"] else "tayyor", bosqich="", foiz=100, sana=out["sana"], almashdi=out["almashdi"],
+                                 xabar="\n".join(out["ogoh"][:40]), tugadi=timezone.now())
+                else:
+                    _ish_yangila(ish, holat="xato", bosqich="", foiz=100, sana=out["sana"], xabar=out["xabar"], tugadi=timezone.now())
+            except Exception as e:  # noqa: BLE001
+                _ish_yangila(ish, holat="xato", bosqich="", foiz=100, xabar=f"Kutilmagan xato: {e}"[:2000], tugadi=timezone.now())
+    finally:
+        connection.close()
+
+
+def _fon_boshlash(navbat):
+    t = threading.Thread(target=_fon_ishchi, args=(navbat,), daemon=True)
+    t.start()
+    return t
+
+
+def _ish_dict(i):
+    ogoh = i.xabar.splitlines() if i.holat == "ogoh" else []
+    return {"id": i.id, "fayl": i.fayl_nomi, "hajm_kb": max(1, round(i.hajm / 1024)), "holat": i.holat, "holat_txt": i.get_holat_display(),
+            "bosqich": i.bosqich, "foiz": i.foiz, "sana": _txt(i.sana) if i.sana else "", "almashdi": i.almashdi,
+            "xabar": i.xabar if i.holat == "xato" else "", "ogoh": ogoh}
+
+
+@ruxsat_kerak("resp_yuklash.korish")
+def resp_yuklash_holat(request):
+    """Oxirgi 2 soat ichidagi o'qish jarayonlari (sahifa jonli yangilanib turishi uchun)."""
+    hozir = timezone.now()
+    RespIsh.objects.filter(holat__in=("navbatda", "jarayonda"), vaqt__lt=hozir - ESKIRDI).update(
+        holat="xato", xabar="Jarayon to'xtab qoldi (server qayta ishga tushgan bo'lishi mumkin). Faylni qayta yuklang.", bosqich="", foiz=100, tugadi=hozir)
+    ishlar = list(RespIsh.objects.filter(vaqt__gte=hozir - KORSATISH)[:20])
+    return JsonResponse({"ishlar": [_ish_dict(i) for i in ishlar], "faol": any(i.holat in ("navbatda", "jarayonda") for i in ishlar)})
 
 
 # ---------------------------------------------------------------- yuklangan fayllar (yuklash sahifasida ko'rsatiladi)

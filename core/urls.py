@@ -12,6 +12,7 @@ urlpatterns = [
     path("respublika/", views_resp.resp_dinamika, name="resp_dinamika"),
     path("respublika/kun/", views_resp.resp_kun, name="resp_kun"),
     path("respublika/yuklash/", views_resp.resp_yuklash, name="resp_yuklash"),
+    path("respublika/yuklash/holat/", views_resp.resp_yuklash_holat, name="resp_yuklash_holat"),
     path("respublika/fayllar/<int:pk>/yuklab/", views_resp.resp_fayl_yuklab, name="resp_fayl_yuklab"),
     path("respublika/fayllar/<int:pk>/ochirish/", views_resp.resp_fayl_ochirish, name="resp_fayl_ochirish"),
     path("royxat/", views.royxat, name="royxat"),

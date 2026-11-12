@@ -542,3 +542,76 @@ class TelegramTest(TestCase):
         self.assertContains(r, 'data-tur="tumanlar"')
         r = self.client.get(reverse("dinamika"), {"b": "2026-11-12", "a": "2026-11-09", "tuman": self.t1.id})
         self.assertNotContains(r, 'data-tur="tumanlar"')
+
+
+# ---------------------------------------------------------------- Respublika PDF: orqa fonda o'qish
+from . import views_resp  # noqa: E402
+from .models import RespIsh  # noqa: E402
+
+
+class RespFonTest(TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.ov = override_settings(UPLOAD_DIR=self.tmp)
+        self.ov.enable()
+        User.objects.create_superuser("admin", password="Admin@12345")
+        self.client.login(username="admin", password="Admin@12345")
+        self.ushlangan = []
+        for p in (mock.patch.object(views_resp, "connection"),
+                  mock.patch.object(views_resp, "_fon_boshlash", lambda navbat: views_resp._fon_ishchi(navbat))):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def tearDown(self):
+        self.ov.disable()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _pdf(self, yol, nom):
+        with open(yol, "rb") as f:
+            return SimpleUploadedFile(nom, f.read(), content_type="application/pdf")
+
+    def test_fonda_yuklash_va_jonli_holat(self):
+        r = self.client.post(reverse("resp_yuklash"), {"fon": "1", "fayllar": [self._pdf(PDF9, "9.pdf"), self._pdf(PDF12, "12.pdf"), SimpleUploadedFile("x.txt", b"salom")]})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json(), {"ok": True, "soni": 3})
+        self.assertEqual(RespYuklama.objects.filter(faol=True).count(), 2)
+        holat = {i.fayl_nomi: i for i in RespIsh.objects.all()}
+        self.assertEqual((holat["9.pdf"].holat, holat["9.pdf"].foiz, holat["9.pdf"].sana), ("tayyor", 100, datetime.date(2026, 11, 9)))
+        self.assertEqual(holat["12.pdf"].holat, "tayyor")
+        self.assertEqual(holat["x.txt"].holat, "xato")
+        d = self.client.get(reverse("resp_yuklash_holat")).json()
+        self.assertFalse(d["faol"])
+        self.assertEqual(len(d["ishlar"]), 3)
+        self.assertEqual({i["fayl"]: i["holat"] for i in d["ishlar"]}["x.txt"], "xato")
+
+    def test_qayta_yuklash_almashtiradi(self):
+        for _ in range(2):
+            self.client.post(reverse("resp_yuklash"), {"fon": "1", "fayllar": self._pdf(PDF12, "12.pdf")})
+        self.assertTrue(RespIsh.objects.filter(almashdi=True).exists())
+        self.assertEqual(RespYuklama.objects.filter(faol=True).count(), 1)
+
+    def test_notogri_pdf_xato_beradi(self):
+        self.client.post(reverse("resp_yuklash"), {"fon": "1", "fayllar": SimpleUploadedFile("a.pdf", b"bu pdf emas")})
+        i = RespIsh.objects.get()
+        self.assertEqual(i.holat, "xato")
+        self.assertTrue(i.xabar)
+
+    def test_eskirgan_jarayon_yopiladi_va_ruxsat(self):
+        eski = RespIsh.objects.create(fayl_nomi="eski.pdf", holat="jarayonda")
+        RespIsh.objects.filter(pk=eski.pk).update(vaqt=datetime.datetime.now() - datetime.timedelta(minutes=40))
+        d = self.client.get(reverse("resp_yuklash_holat")).json()
+        self.assertFalse(d["faol"])
+        self.assertEqual(RespIsh.objects.get(pk=eski.pk).holat, "xato")
+        u = User.objects.create_user("hodim", password="Hodim@12345")
+        c = self.client_class()
+        c.login(username="hodim", password="Hodim@12345")
+        self.assertEqual(c.get(reverse("resp_yuklash_holat")).status_code, 403)
+        self.assertEqual(c.post(reverse("resp_yuklash"), {"fon": "1"}).status_code, 403)
+        self.assertEqual(u.pk and RespIsh.objects.count(), 1)
+
+    def test_sahifa_va_oddiy_yuklash_ishlaydi(self):
+        r = self.client.get(reverse("resp_yuklash"))
+        self.assertContains(r, "yj-karta")
+        r = self.client.post(reverse("resp_yuklash"), {"fayllar": self._pdf(PDF12, "12.pdf")})  # JS siz (eski usul)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "O'qildi")

@@ -3,6 +3,18 @@
 {% block title %}Respublika PDF yuklash{% endblock %}
 {% block h1 %}Respublika PDF yuklash{% endblock %}
 {% block h1sub %}Respublikadan kelgan kunlik dinamika hisoboti{% endblock %}
+{% block head %}<style>
+.yj-bar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; min-width: 120px; }
+.yj-bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, var(--sect), #38bdf8); transition: width .5s ease; }
+.yj-bar.run i { background-size: 200% 100%; animation: yjkuch 1.2s linear infinite; }
+.yj-bar.ok i { background: var(--good); } .yj-bar.err i { background: var(--bad); }
+@keyframes yjkuch { to { background-position: -200% 0; } }
+.yj-up { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--info-bg); font-size: 13px; }
+.yj-up .yj-bar { margin-top: 8px; }
+.yj-nuqta { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--sect); margin-right: 6px; animation: yjnafas 1s ease-in-out infinite; }
+@keyframes yjnafas { 50% { opacity: .25; } }
+#yuk-btn[disabled] { opacity: .7; cursor: progress; transform: none; box-shadow: none; }
+</style>{% endblock %}
 {% block content %}
 <div class="grid g3">
   {% if rx.resp_yuklash_yuklash %}<form class="card" method="post" enctype="multipart/form-data" id="yuk-forma">{% csrf_token %}
@@ -20,7 +32,8 @@
         <input type="date" name="sana">
       </label>
     </div>
-    <p style="margin-top:18px"><button class="btn" type="submit"><svg class="ic"><use href="#i-upload"/></svg> Yuklash va o'qish</button></p>
+    <p style="margin-top:18px"><button class="btn" type="submit" id="yuk-btn"><svg class="ic"><use href="#i-upload"/></svg> <span id="yuk-btn-t">Yuklash va o'qish</span></button></p>
+    <div class="yj-up" id="yj-up" hidden><div id="yj-up-t"></div><div class="yj-bar run"><i id="yj-up-b"></i></div></div>
   </form>{% else %}<div class="card"><h3>PDF yuklash</h3><div class="sub">Sizda PDF yuklash ruxsati yo'q.</div></div>{% endif %}
   <div class="card">
     <h3>Qanday ishlaydi</h3>
@@ -31,6 +44,15 @@
       <li>Bir sanaga ikkinchi PDF yuklansa, yangisi amalda bo'ladi, eskisi pastdagi "Yuklangan PDF lar" ro'yxatida saqlanib qoladi.</li>
     </ol>
   </div>
+</div>
+
+<div class="card mt" id="yj-karta" hidden>
+  <h3>Yuklash jarayoni</h3>
+  <div class="sub">PDF lar orqa fonda o'qiladi. Sahifani yopsangiz ham jarayon davom etadi, qaytib kirsangiz shu yerda ko'rinadi.</div>
+  <div class="tw"><table class="jadval">
+    <thead><tr><th>Fayl</th><th style="min-width:210px">Jarayon</th><th>Sana</th><th>Izoh</th></tr></thead>
+    <tbody id="yj-tbody"></tbody></table></div>
+  {% if rx.resp_dinamika_korish %}<p style="margin-top:14px"><a class="btn sec sm" href="{% url 'resp_dinamika' %}">Respublika dinamikasini ochish</a></p>{% endif %}
 </div>
 
 {% if natijalar %}
@@ -95,5 +117,88 @@
   ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
   drop.addEventListener('drop', function (e) { inp.files = e.dataTransfer.files; show(); });
 })();
+</script>
+<script data-holat="{% url 'resp_yuklash_holat' %}">
+{% verbatim %}
+(function () {
+  var forma = document.getElementById('yuk-forma'), karta = document.getElementById('yj-karta'), tbody = document.getElementById('yj-tbody');
+  if (!karta) return;
+  var holatUrl = document.currentScript.getAttribute('data-holat'), faolEdi = false, taymer = null;
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+  function toast(t, tur) {
+    var c = document.querySelector('.toasts');
+    if (!c) { c = document.createElement('div'); c.className = 'toasts'; document.body.appendChild(c); }
+    var e = document.createElement('div'); e.className = 'toast ' + (tur || ''); e.textContent = t; c.appendChild(e);
+    setTimeout(function () { e.style.transition = 'opacity .5s'; e.style.opacity = 0; setTimeout(function () { e.remove(); }, 600); }, 7000);
+  }
+  function qator(i) {
+    var faol = i.holat === 'navbatda' || i.holat === 'jarayonda';
+    var kl = faol ? 'run' : (i.holat === 'xato' ? 'err' : 'ok');
+    var holat = faol
+      ? '<span class="yj-nuqta"></span><b>' + esc(i.holat === 'navbatda' ? 'Navbatda' : 'O\'qilmoqda') + '</b> <span class="muted">' + esc(i.bosqich) + '</span>'
+      : (i.holat === 'xato' ? '<span class="stat-badge xato">Xato</span>' : (i.holat === 'ogoh' ? '<span class="stat-badge jarayonda" style="animation:none">Ogohlantirish bor</span>' : '<span class="stat-badge tayyor">O\'qildi</span>'));
+    var izoh = '';
+    if (i.holat === 'xato') izoh = esc(i.xabar);
+    else if (i.holat === 'tayyor') izoh = '<span class="muted">Barcha jadvallar o\'qildi va "Jami" qatorlari bilan mos keldi.</span>';
+    else if (i.holat === 'ogoh') izoh = i.ogoh.map(function (o) { return '<div class="muted">• ' + esc(o) + '</div>'; }).join('');
+    if (i.almashdi) izoh += '<div class="muted">Shu sanadagi avvalgi fayl almashtirildi (eskisi pastdagi ro\'yxatda qoldi).</div>';
+    return '<tr><td class="wrap"><b>' + esc(i.fayl) + '</b><div class="muted" style="font-size:12px">' + i.hajm_kb + ' KB</div></td>' +
+      '<td><div>' + holat + '</div><div class="yj-bar ' + kl + '" style="margin-top:6px"><i style="width:' + i.foiz + '%"></i></div></td>' +
+      '<td>' + (i.sana ? '<b>' + esc(i.sana) + '</b>' : '-') + '</td><td class="wrap" style="font-size:12.5px">' + izoh + '</td></tr>';
+  }
+  function chiz(d) {
+    karta.hidden = !d.ishlar.length;
+    tbody.innerHTML = d.ishlar.map(qator).join('');
+  }
+  function royxatniYangila() {  // pastdagi "Yuklangan PDF lar" jadvalini sahifani yangilamasdan almashtiradi
+    fetch(location.pathname, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (h) {
+      var yangi = new DOMParser().parseFromString(h, 'text/html').getElementById('fayllar-royxati'), eski = document.getElementById('fayllar-royxati');
+      if (yangi && eski) eski.innerHTML = yangi.innerHTML;
+    });
+  }
+  function sora() {
+    clearTimeout(taymer);
+    fetch(holatUrl, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('holat'); return r.json(); }).then(function (d) {
+      chiz(d);
+      if (d.faol) { faolEdi = true; taymer = setTimeout(sora, 1000); return; }
+      if (faolEdi) {
+        faolEdi = false; royxatniYangila();
+        var xato = d.ishlar.filter(function (i) { return i.holat === 'xato'; }).length, ok = d.ishlar.length - xato;
+        toast(xato ? ('Yuklash tugadi: ' + ok + ' ta o\'qildi, ' + xato + ' ta xato.') : 'PDF o\'qildi va saqlandi.', xato ? 'warning' : 'success');
+      }
+    }).catch(function () { taymer = setTimeout(sora, 3000); });
+  }
+  sora();  // sahifa ochilganda: davom etayotgan jarayon bo'lsa jonli ko'rsatadi
+
+  if (!forma || !window.FormData || !window.XMLHttpRequest) return;
+  var btn = document.getElementById('yuk-btn'), btnT = document.getElementById('yuk-btn-t'), up = document.getElementById('yj-up'), upT = document.getElementById('yj-up-t'), upB = document.getElementById('yj-up-b');
+  var inp = document.getElementById('fayllar'), royxat = document.getElementById('filelist');
+  function mb(n) { return (n / 1048576).toFixed(1); }
+  forma.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!inp.files.length) { toast('Avval PDF fayl tanlang.', 'error'); return; }
+    var fd = new FormData(forma); fd.append('fon', '1');
+    var x = new XMLHttpRequest(); x.open('POST', forma.getAttribute('action') || location.pathname);
+    x.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    btn.disabled = true; up.hidden = false; upB.style.width = '0%'; upT.innerHTML = '<span class="yj-nuqta"></span>Serverga yuklanmoqda...';
+    x.upload.onprogress = function (ev) {
+      if (!ev.lengthComputable) return;
+      var p = Math.round(ev.loaded * 100 / ev.total);
+      upB.style.width = p + '%'; btnT.textContent = 'Yuklanmoqda ' + p + '%';
+      upT.innerHTML = '<span class="yj-nuqta"></span>Serverga yuklanmoqda: <b>' + p + '%</b> (' + mb(ev.loaded) + ' / ' + mb(ev.total) + ' MB)';
+    };
+    function tugat() { btn.disabled = false; btnT.textContent = 'Yuklash va o\'qish'; setTimeout(function () { up.hidden = true; }, 1200); }
+    x.onload = function () {
+      tugat();
+      if (x.status !== 200) { toast(x.status === 403 ? 'Yuklash uchun ruxsatingiz yo\'q.' : 'Yuklashda xatolik (' + x.status + '). Qayta urinib ko\'ring.', 'error'); return; }
+      upB.style.width = '100%'; upT.innerHTML = 'Yuklandi. PDF lar orqa fonda o\'qilmoqda...';
+      forma.reset(); if (royxat) royxat.innerHTML = '';
+      faolEdi = true; sora();
+    };
+    x.onerror = function () { tugat(); toast('Serverga ulanib bo\'lmadi. Internetni tekshirib qayta urinib ko\'ring.', 'error'); };
+    x.send(fd);
+  });
+})();
+{% endverbatim %}
 </script>
 {% endblock %}

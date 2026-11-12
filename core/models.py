@@ -272,3 +272,29 @@ class TelegramIsh(models.Model):
 
     def __str__(self):
         return self.sarlavha
+
+
+class RespIsh(models.Model):
+    """Respublika PDF sini orqa fonda o'qish jarayoni (yuklash sahifasida jonli ko'rsatiladi)."""
+
+    HOLATLAR = [("navbatda", "Navbatda"), ("jarayonda", "O'qilmoqda"), ("tayyor", "O'qildi"), ("ogoh", "Ogohlantirish bor"), ("xato", "Xato")]
+
+    fayl_nomi = models.CharField(max_length=255)
+    hajm = models.PositiveIntegerField(default=0)
+    holat = models.CharField(max_length=10, choices=HOLATLAR, default="navbatda")
+    bosqich = models.CharField(max_length=120, blank=True)
+    foiz = models.PositiveSmallIntegerField(default=0)
+    sana = models.DateField(null=True, blank=True)
+    xabar = models.TextField(blank=True)  # xato matni yoki ogohlantirishlar (har biri yangi qatorda)
+    almashdi = models.BooleanField(default=False)
+    yuklagan = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    vaqt = models.DateTimeField(auto_now_add=True)
+    tugadi = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-id"]
+        verbose_name = "Respublika PDF o'qish jarayoni"
+        verbose_name_plural = "Respublika PDF o'qish jarayonlari"
+
+    def __str__(self):
+        return f"{self.fayl_nomi} ({self.get_holat_display()})"
