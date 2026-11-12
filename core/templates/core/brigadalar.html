@@ -1,0 +1,24 @@
+{% extends "core/base.html" %}
+{% block title %}Brigadalar{% endblock %}
+{% block h1 %}Brigadalar{% endblock %}
+{% block h1sub %}Tuman bo'yicha brigada va hodimlarni tahrirlash{% endblock %}
+{% block topact %}{% if tuman and rx.brigadalar_yaratish %}<form method="post" action="{% url 'brigada_yangi' tuman.id %}">{% csrf_token %}<button class="btn sm" type="submit">+ Yangi brigada</button></form>{% endif %}{% endblock %}
+{% block content %}
+<div class="tabs">
+  {% for t in tumanlar %}<a class="{% if tuman and t.id == tuman.id %}on{% endif %}" href="?tuman={{ t.id }}">{{ t.korsat }}</a>{% endfor %}
+</div>
+{% if yoq %}
+<div class="card" style="margin-bottom:16px;border-left:4px solid var(--warn)">
+  <b>{{ yoq }} ta TP brigadaga biriktirilmagan.</b> {% if rx.tp_kochirish_korish %}<a href="{% url 'tp_kochirish' %}?tuman={{ tuman.id }}&manba=yoq">Biriktirish ›</a>{% endif %}
+</div>
+{% endif %}
+<div class="grid g2">
+  {% for b in royxat %}
+  <div class="card brig" style="animation-delay:{{ forloop.counter0|add:1 }}0ms">
+    <div class="flex"><h3 class="grow">{{ b.nom }}</h3><span class="chip">{{ b.tp_soni }} ta TP</span>{% if rx.brigadalar_tahrirlash %}<a class="btn sec sm" href="{% url 'brigada_tahrir' b.id %}">Tahrirlash</a>{% endif %}</div>
+    <div class="chips" style="margin-top:10px">{% for h in b.hodimlar.all %}<span class="chip">{{ h.ism }}</span>{% empty %}<span class="muted">Hodim biriktirilmagan</span>{% endfor %}</div>
+    {% if b.telefon %}<div class="muted" style="margin-top:8px;font-size:12px">Tel: {{ b.telefon }}</div>{% endif %}
+  </div>
+  {% empty %}<div class="card">Bu tumanda brigada yo'q. Hududiy tuzilma faylini yuklang yoki yangi brigada yarating.</div>{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "core/base.html" %}
+{% block title %}Foydalanuvchi{% endblock %}
+{% block h1 %}{% if u %}{{ u.username }}{% else %}Yangi foydalanuvchi{% endif %}{% endblock %}
+{% block h1sub %}Ma'lumotlar, rol va bo'limlar bo'yicha ruxsatlar{% endblock %}
+{% block content %}
+<form method="post" id="forma">{% csrf_token %}
+<div class="card" style="max-width:900px">
+  {% if xato %}<div class="err">{{ xato }}</div>{% endif %}
+  <div class="form-grid">
+    <label>Login <input type="text" name="username" value="{% if p %}{{ p.username }}{% else %}{{ u.username }}{% endif %}" required></label>
+    <label>F.I.Sh. <input type="text" name="ism" value="{% if p %}{{ p.ism }}{% else %}{{ u.first_name }}{% endif %}"></label>
+    <label>Parol {% if u %}(o'zgartirmasangiz bo'sh qoldiring){% endif %} <input type="password" name="parol" autocomplete="new-password"></label>
+    <label>Telefon <input type="text" name="telefon" value="{% if p %}{{ p.telefon }}{% else %}{{ u.profil.telefon }}{% endif %}"></label>
+    <label>Rol
+      <select name="rol" id="rol">{% for k, n in rollar %}<option value="{{ k }}" {% if p %}{% if p.rol == k %}selected{% endif %}{% elif u.profil.rol == k or u.is_superuser and k == 'admin' %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
+    </label>
+    <label>Tuman (tuman hodimi uchun majburiy)
+      <select name="tuman"><option value="">-</option>{% for t in tumanlar %}<option value="{{ t.id }}" {% if p %}{% if p.tuman == t.id|stringformat:"s" %}selected{% endif %}{% elif u.profil.tuman_id == t.id %}selected{% endif %}>{{ t.korsat }}</option>{% endfor %}</select>
+    </label>
+  </div>
+  <label style="display:flex;gap:8px;align-items:center;margin-top:14px"><input type="checkbox" name="faol" value="1" {% if p %}{% if p.faol %}checked{% endif %}{% elif not u or u.is_active %}checked{% endif %}> Faol (kira oladi)</label>
+  <p class="muted" style="font-size:12.5px;margin:10px 0 0">Ko'rish doirasi rolga bog'liq: administrator, viloyat hodimi va tuman rahbari butun viloyatni, tuman hodimi faqat o'z tumanini ko'radi.</p>
+</div>
+
+<div class="card mt" style="max-width:900px">
+  <div class="flex"><div class="grow"><h3>Bo'limlar va amaliyotlar bo'yicha ruxsatlar</h3>
+    <div class="sub" id="rx-izoh">Rolga mos standart ruxsatlar belgilangan. Kerakli amaliyotni belgilab qo'shishingiz yoki olib qo'yishingiz mumkin.</div></div>
+    <button class="btn sec sm" type="button" id="rx-standart">Rol bo'yicha standartga qaytarish</button></div>
+  <table class="rx-table" id="rx-table"><tbody>
+    {% for b in matritsa %}
+    <tr>
+      <td class="b">{{ b.nom }}{% if b.faqat_admin %}<div class="muted" style="font-weight:400;font-size:11.5px">faqat administrator</div>{% endif %}</td>
+      <td>
+        {% for a in b.amallar %}
+        <label class="{% if b.faqat_admin %}qulf{% endif %}"><input type="checkbox" name="rx" value="{{ a.kod }}" data-bolim="{{ b.kod }}" data-amal="{{ a.kod }}" {% if a.on %}checked{% endif %} {% if b.faqat_admin %}disabled{% endif %}> {{ a.nom }}</label>
+        {% endfor %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody></table>
+  <p style="margin-top:18px" class="flex"><button class="btn" type="submit">Saqlash</button><a class="btn sec" href="{% url 'foydalanuvchilar' %}">Bekor qilish</a></p>
+</div>
+</form>
+{{ standartlar|json_script:"rx-standart-data" }}
+<script>
+(function () {
+  var STD = JSON.parse(document.getElementById('rx-standart-data').textContent);
+  var rol = document.getElementById('rol');
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('#rx-table input[name=rx]'));
+  function qoy(rolKod) {
+    var admin = rolKod === 'admin', std = STD[rolKod] || [];
+    boxes.forEach(function (b) {
+      if (b.disabled && !admin) { b.checked = false; return; }
+      b.checked = admin ? true : std.indexOf(b.value) >= 0;
+    });
+    holat();
+  }
+  function holat() {
+    var admin = rol.value === 'admin';
+    boxes.forEach(function (b) { if (!b.closest('label').classList.contains('qulf')) b.disabled = admin; });
+    document.getElementById('rx-izoh').textContent = admin ? "Administrator barcha bo'limlarda hamma amaliyotlarni bajara oladi." : "Rolga mos standart ruxsatlar belgilangan. Kerakli amaliyotni belgilab qo'shishingiz yoki olib qo'yishingiz mumkin.";
+  }
+  rol.addEventListener('change', function () { qoy(rol.value); });
+  document.getElementById('rx-standart').addEventListener('click', function () { qoy(rol.value); });
+  // amaliyot belgilansa, "ko'rish" ham belgilanadi; "ko'rish" olinsa, bo'limning hammasi olinadi
+  boxes.forEach(function (b) {
+    b.addEventListener('change', function () {
+      var bolim = b.getAttribute('data-bolim'), korish = bolim + '.korish';
+      var same = boxes.filter(function (x) { return x.getAttribute('data-bolim') === bolim; });
+      if (b.value === korish && !b.checked) same.forEach(function (x) { x.checked = false; });
+      else if (b.checked) same.forEach(function (x) { if (x.value === korish) x.checked = true; });
+    });
+  });
+  // yuborishdan oldin o'chirilgan (admin) belgilar yuborilmaydi - serverda baribir hisobga olinmaydi
+  holat();
+})();
+</script>
+{% endblock %}

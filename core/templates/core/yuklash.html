@@ -1,0 +1,78 @@
+{% extends "core/base.html" %}
+{% load uzfmt %}
+{% block title %}Fayl yuklash{% endblock %}
+{% block h1 %}Fayl yuklash{% endblock %}
+{% block h1sub %}CAS dan olingan Excel fayllar{% endblock %}
+{% block content %}
+<div class="grid g3">
+  {% if rx.yuklash_yuklash %}<form class="card" method="post" enctype="multipart/form-data" id="yuk-forma">{% csrf_token %}
+    <h3>Yangi fayllarni yuklash</h3>
+    <div class="sub">Bir vaqtda bir nechta faylni tanlash mumkin. Fayl turi (konsentrator, GPRS, aloqadan chiqib ketgan hisoblagichlar, to'g'ridan-to'g'ri ulanish (Primichka), hududiy tuzilma) ustun nomlariga qaramasdan mazmunidan avtomatik aniqlanadi.</div>
+    <label class="drop" id="drop" for="fayllar">
+      <svg class="ic" viewBox="0 0 24 24"><use href="#i-upload"/></svg>
+      <b>Fayllarni shu yerga tashlang yoki bosib tanlang</b>
+      <span class="muted">.xlsx formatida</span>
+      <div class="filelist" id="filelist"></div>
+    </label>
+    <input type="file" id="fayllar" name="fayllar" multiple accept=".xlsx,.xlsm" style="display:none">
+    <div class="form-grid" style="margin-top:16px">
+      <label>Ma'lumot sanasi
+        <input type="date" name="sana" value="{{ bugun|date:'Y-m-d' }}">
+      </label>
+      <label>Fayl turi (bitta fayl uchun)
+        <select name="tur"><option value="">Avtomatik aniqlash</option>{% for k, n in turlar %}<option value="{{ k }}">{{ n }}</option>{% endfor %}</select>
+      </label>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:14px;font-size:13px">
+      <input type="checkbox" name="fayldan" value="1" checked> Faylning o'zida sana bo'lsa (masalan, fayl nomidagi 12112026) shuni olish
+    </label>
+    <p style="margin-top:18px"><button class="btn" type="submit"><svg class="ic"><use href="#i-upload"/></svg> Yuklash va qayta ishlash</button></p>
+  </form>{% else %}<div class="card"><h3>Fayl yuklash</h3><div class="sub">Sizda fayl yuklash ruxsati yo'q, faqat yuklamalar tarixini ko'rishingiz mumkin.</div></div>{% endif %}
+  <div class="card">
+    <h3>Qanday ishlaydi</h3>
+    <ol class="muted" style="padding-left:18px;line-height:1.7;margin:8px 0 0">
+      <li><b>Hududiy tuzilma</b> (Area Information Report): TP lar va brigadalar. Odatda bir marta yuklanadi, brigadalar shundan yaratiladi.</li>
+      <li>Har kuni 4 ta fayl: konsentratorlar, GPRS hisoblagichlar, aloqadan chiqib ketgan hisoblagichlar, to'g'ridan-to'g'ri ulanishlar (Primichka).</li>
+      <li>Bir xil tur va sana qayta yuklansa, eskisi almashtiriladi.</li>
+      <li>Katta fayllar orqa fonda qayta ishlanadi (1-2 daqiqa), sahifani yopsangiz ham davom etadi.</li>
+    </ol>
+  </div>
+</div>
+
+<div class="card mt">
+  <h3>Yuklamalar tarixi</h3>
+  <div class="tw"><table class="jadval">
+    <thead><tr><th>Sana</th><th>Turi</th><th>Fayl</th><th>Holat</th><th>Qatorlar</th><th>Natija</th><th>Yuklagan</th><th>Vaqt</th><th></th></tr></thead>
+    <tbody id="tarix">
+    {% for y in royxat %}
+      <tr data-id="{{ y.id }}">
+        <td><b>{{ y.sana|kun }}</b></td><td>{{ y.get_tur_display }}</td><td class="wrap">{{ y.fayl_nomi }}</td>
+        <td><span class="stat-badge {{ y.holat }}">{{ y.get_holat_display }}</span></td><td class="son">{{ y.qatorlar|fmt }}</td>
+        <td class="wrap muted" style="font-size:12px">{{ y.xabar|truncatechars:160 }}</td>
+        <td>{% if y.yuklagan %}{{ y.yuklagan.first_name|default:y.yuklagan.username }}{% else %}-{% endif %}</td><td>{{ y.vaqt|sana_vaqt }}</td>
+        <td>{% if rx.yuklash_ochirish %}<form method="post" action="{% url 'yuklama_ochirish' y.id %}" onsubmit="return confirm('Bu yuklamani o\'chirasizmi?')">{% csrf_token %}<button class="btn sec sm" type="submit">O'chirish</button></form>{% endif %}</td>
+      </tr>
+    {% empty %}<tr><td colspan="9" class="muted" style="text-align:center;padding:24px">Hali fayl yuklanmagan.</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var inp = document.getElementById('fayllar'), drop = document.getElementById('drop'), list = document.getElementById('filelist');
+  function show() { list.innerHTML = ''; Array.prototype.forEach.call(inp.files, function (f) { var s = document.createElement('span'); s.className = 'chip'; s.textContent = f.name + ' (' + Math.round(f.size / 1024) + ' KB)'; list.appendChild(s); }); }
+  inp.addEventListener('change', show);
+  ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { inp.files = e.dataTransfer.files; show(); });
+  var bor = document.querySelector('.stat-badge.jarayonda');
+  if (bor) {
+    (function poll() {
+      fetch('{% url "yuklash_holat" %}', {credentials: 'same-origin'}).then(function (r) { return r.json(); }).then(function (d) {
+        if (d.jarayonda) setTimeout(poll, 2500); else location.reload();
+      }).catch(function () { setTimeout(poll, 4000); });
+    })();
+  }
+})();
+</script>
+{% endblock %}

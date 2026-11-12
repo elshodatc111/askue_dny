@@ -1,0 +1,37 @@
+{% load uzfmt %}  <div class="rt-nom">{{ sarlavha }}</div>
+  <div class="rt-tur">{% if a %}D I N A M I K A{% else %}M A ' L U M O T{% endif %}</div>
+  <div class="rt-meta"><span>Hudud nomi: <b class="rt-hudud">{% if tuman %}{{ tuman.korsat }}{% else %}Qashqadaryo HETK{% endif %}</b></span><b class="rt-davr">{% if a %}Dinamika: {{ a|date:"d.m.Y" }} - {{ b|date:"d.m.Y" }}{% else %}Ma'lumot sanasi: {{ b|date:"d.m.Y" }}{% endif %}</b></div>
+  <div class="tw">
+    <table class="jadval dinamika rt2">
+      <thead>
+        <tr>
+          <th class="nom" rowspan="3">{% if tuman %}Brigada{% else %}Hudud nomi{% endif %}</th>
+          {% if tuman %}<th rowspan="3">Biriktirilgan hodimlar</th>{% endif %}
+          {% for g in jadval.guruhlar_veb %}<th class="grp grp-{{ g.2 }}" colspan="{{ g.1|add:g.1 }}">{{ g.0 }}</th>{% endfor %}
+        </tr>
+        <tr>
+          {% for u in jadval.ustunlar %}<th colspan="2" class="ugrp-{{ u.4 }} k-{{ u.0 }}{% if u.5 %} gsep{% endif %}">{{ u.1 }}{% if u.3 %}<small class="hint">{{ u.3 }}</small>{% endif %}</th>{% endfor %}
+        </tr>
+        <tr>{% for u in jadval.ustunlar %}<th class="h-s">soni</th><th><span class="rt-up">▲</span><span class="rt-dn">▼</span></th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        <tr class="jami">
+          <td class="nom">{{ jadval.jami.nom }}</td>{% if tuman %}<td></td>{% endif %}
+          {% for c in jadval.jami.katak %}
+            <td class="son k-{{ c.key }} t-{{ c.tur }}{% if c.gs %} gsep{% endif %}">{% if c.bos and c.v %}<a href="{% url 'royxat' %}?tur={{ c.tur }}&b={{ b|date:'Y-m-d' }}&a={{ a|date:'Y-m-d' }}&ust={{ c.key }}{% if tuman_id %}&tuman={{ tuman_id }}{% endif %}">{{ c.vt }}</a>{% else %}{{ c.vt }}{% endif %}</td>
+            <td class="delta-c t-{{ c.tur }} {{ c.cls }}">{{ c.dt }}</td>
+          {% endfor %}
+        </tr>
+        {% for r in jadval.qatorlar %}
+        <tr>
+          <td class="nom">{% if r.tur == 'tuman' %}<a href="?sahifa={{ sahifa }}&b={{ b|date:'Y-m-d' }}&a={{ a|date:'Y-m-d' }}&tuman={{ r.id }}">{{ r.nom }}</a>{% else %}{{ r.nom }}{% endif %}</td>
+          {% if tuman %}<td class="hod">{% for h in r.hodimlar %}<span>{{ h }}</span>{% empty %}<span class="muted">-</span>{% endfor %}</td>{% endif %}
+          {% for c in r.katak %}
+            <td class="son k-{{ c.key }} t-{{ c.tur }}{% if c.gs %} gsep{% endif %}">{% if c.bos and c.v %}<a href="{% url 'royxat' %}?tur={{ c.tur }}&b={{ b|date:'Y-m-d' }}&a={{ a|date:'Y-m-d' }}&ust={{ c.key }}&tuman={{ r.tuman_id }}{% if r.tur == 'brigada' %}&brigada={{ r.id }}{% elif r.tur == 'yoq' %}&brigada=yoq{% endif %}">{{ c.vt }}</a>{% else %}{{ c.vt }}{% endif %}</td>
+            <td class="delta-c t-{{ c.tur }} {{ c.cls }}">{% if c.d and c.bos %}<a title="{% if c.d > 0 %}Yangi paydo bo'lganlar{% else %}Tuzalganlar{% endif %}" href="{% url 'royxat' %}?tur={{ c.tur }}&b={{ b|date:'Y-m-d' }}&a={{ a|date:'Y-m-d' }}&ust={{ c.key }}&tuman={{ r.tuman_id }}{% if r.tur == 'brigada' %}&brigada={{ r.id }}{% elif r.tur == 'yoq' %}&brigada=yoq{% endif %}&holat={% if c.d > 0 %}yangi{% else %}tuzalgan{% endif %}">{{ c.dt }}</a>{% else %}{{ c.dt }}{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>

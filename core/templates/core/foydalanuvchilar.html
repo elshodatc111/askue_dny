@@ -1,0 +1,31 @@
+{% extends "core/base.html" %}
+{% block title %}Foydalanuvchilar{% endblock %}
+{% block h1 %}Foydalanuvchilar{% endblock %}
+{% block h1sub %}Rollar va ruxsatlar{% endblock %}
+{% block topact %}{% if rx.foydalanuvchilar_yaratish %}<a class="btn sm" href="{% url 'foydalanuvchi_yangi' %}">+ Yangi foydalanuvchi</a>{% endif %}{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom:16px">
+  <div class="chips">
+    <span class="chip">Administrator: hamma bo'lim va amaliyotlar</span>
+    <span class="chip">Viloyat hodimi: butun viloyat</span>
+    <span class="chip">Tuman rahbari: butun viloyat</span>
+    <span class="chip y">Tuman hodimi: faqat o'z tumani</span>
+    <span class="chip g">Har bir hodim uchun bo'lim va amaliyotlar alohida beriladi yoki olib qo'yiladi</span>
+  </div>
+</div>
+<div class="tw"><table class="jadval">
+  <thead><tr><th>Login</th><th>F.I.Sh.</th><th>Rol</th><th>Tuman</th><th>Telefon</th><th>Ruxsatlar</th><th>Holat</th><th>Oxirgi kirish</th><th></th></tr></thead>
+  <tbody>
+  {% for u in royxat %}
+    <tr>
+      <td><b>{{ u.username }}</b></td><td>{{ u.first_name }}</td>
+      <td>{% if u.is_superuser %}Administrator{% else %}{{ u.profil.get_rol_display }}{% endif %}</td>
+      <td>{{ u.profil.tuman.korsat|default:"-" }}</td><td>{{ u.profil.telefon }}</td>
+      <td>{{ u.rx_soni }} / {{ u.rx_jami }}{% if u.rx_ozgargan %} <span class="chip y" title="Rol bo'yicha standartdan farq qiladi">o'zgartirilgan</span>{% endif %}</td>
+      <td>{% if u.is_active %}<span class="chip g">Faol</span>{% else %}<span class="chip r">O'chirilgan</span>{% endif %}</td>
+      <td>{{ u.last_login|date:"d.m.Y H:i"|default:"-" }}</td>
+      <td>{% if rx.foydalanuvchilar_tahrirlash %}<a class="btn sec sm" href="{% url 'foydalanuvchi_tahrir' u.id %}">Tahrirlash</a>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody></table></div>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "core/base.html" %}
+{% load uzfmt %}
+{% block title %}Respublika PDF yuklash{% endblock %}
+{% block h1 %}Respublika PDF yuklash{% endblock %}
+{% block h1sub %}Respublikadan kelgan kunlik dinamika hisoboti{% endblock %}
+{% block content %}
+<div class="grid g3">
+  {% if rx.resp_yuklash_yuklash %}<form class="card" method="post" enctype="multipart/form-data" id="yuk-forma">{% csrf_token %}
+    <h3>PDF yuklash</h3>
+    <div class="sub">Respublikadan kelgan 9 betli dinamika PDF sini yuklang. Hisobot sanasi PDF ning o'zidan aniqlanadi, jadvallar o'qib olinadi va "Jami" qatorlari bilan tekshiriladi. Bir vaqtda bir nechta PDF tanlash mumkin.</div>
+    <label class="drop" id="drop" for="fayllar">
+      <svg class="ic" viewBox="0 0 24 24"><use href="#i-upload"/></svg>
+      <b>PDF fayllarni shu yerga tashlang yoki bosib tanlang</b>
+      <span class="muted">.pdf formatida</span>
+      <div class="filelist" id="filelist"></div>
+    </label>
+    <input type="file" id="fayllar" name="fayllar" multiple accept=".pdf,application/pdf" style="display:none">
+    <div class="form-grid" style="margin-top:16px">
+      <label>Sanani qo'lda ko'rsatish (ixtiyoriy, bitta fayl uchun)
+        <input type="date" name="sana">
+      </label>
+    </div>
+    <p style="margin-top:18px"><button class="btn" type="submit"><svg class="ic"><use href="#i-upload"/></svg> Yuklash va o'qish</button></p>
+  </form>{% else %}<div class="card"><h3>PDF yuklash</h3><div class="sub">Sizda PDF yuklash ruxsati yo'q.</div></div>{% endif %}
+  <div class="card">
+    <h3>Qanday ishlaydi</h3>
+    <ol class="muted" style="padding-left:18px;line-height:1.7;margin:8px 0 0">
+      <li>Dasturga 1, 2, 3, 4, 6, 7 va 8-betlardagi jadvallar o'qiladi. Diagramma va SmartApp betlari kerak emas.</li>
+      <li>PDF dagi strelkalar oy boshiga nisbatan; dastur ularni ishlatmaydi, o'zgarishni siz tanlagan sanaga nisbatan o'zi hisoblaydi.</li>
+      <li>Shanba va yakshanba kunlari ko'rsatilmaydi (kerak bo'lsa "Respublika dinamikasi" sahifasida qo'lda belgilanadi).</li>
+      <li>Bir sanaga ikkinchi PDF yuklansa, yangisi amalda bo'ladi, eskisi pastdagi "Yuklangan PDF lar" ro'yxatida saqlanib qoladi.</li>
+    </ol>
+  </div>
+</div>
+
+{% if natijalar %}
+<div class="card mt">
+  <h3>Natija</h3>
+  <div class="tw"><table class="jadval">
+    <thead><tr><th>Fayl</th><th>Sana</th><th>Holat</th><th>Izoh</th></tr></thead>
+    <tbody>
+    {% for n in natijalar %}<tr>
+      <td class="wrap">{{ n.fayl }}</td>
+      <td>{% if n.sana %}<b>{{ n.sana|kun }}</b>{% else %}-{% endif %}</td>
+      <td>{% if n.ok and not n.ogoh %}<span class="stat-badge tayyor">O'qildi</span>{% elif n.ok %}<span class="stat-badge jarayonda" style="animation:none">Ogohlantirish bor</span>{% else %}<span class="stat-badge xato">Xato</span>{% endif %}</td>
+      <td class="wrap" style="font-size:12.5px">
+        {% if n.xabar %}{{ n.xabar }}{% endif %}
+        {% if n.almashdi %}<div class="muted">Shu sanadagi avvalgi fayl almashtirildi (eskisi pastdagi ro'yxatda qoldi).</div>{% endif %}
+        {% for o in n.ogoh %}<div class="muted">• {{ o }}</div>{% endfor %}
+        {% if n.ok and not n.ogoh %}<span class="muted">Barcha jadvallar o'qildi va "Jami" qatorlari bilan mos keldi.</span>{% endif %}
+      </td>
+    </tr>{% endfor %}
+    </tbody></table></div>
+  {% if rx.resp_dinamika_korish %}<p style="margin-top:14px"><a class="btn sec sm" href="{% url 'resp_dinamika' %}">Respublika dinamikasini ochish</a></p>{% endif %}
+</div>
+{% endif %}
+
+<div class="card mt" id="fayllar-royxati">
+  <h3>Yuklangan PDF lar</h3>
+  <div class="sub">Respublikadan kelgan barcha hisobotlar shu yerda saqlanadi; kerak bo'lsa asl PDF ni yuklab olish mumkin.</div>
+  <div class="tw"><table class="jadval">
+    <thead><tr><th>Hisobot sanasi</th><th>Fayl</th><th>Hajmi</th><th>Holat</th><th>Ko'rinishi</th><th>Yuklagan</th><th>Yuklangan vaqt</th><th></th></tr></thead>
+    <tbody>
+    {% for y in sahifa %}<tr>
+      <td><b>{{ y.sana|kun }}</b> <span class="muted" style="font-size:12px">{{ y.kun_nomi }}</span></td>
+      <td class="wrap">{{ y.fayl_nomi }}</td>
+      <td class="son">{{ y.kb|fmt }} KB</td>
+      <td>{% if y.faol %}<span class="chip g">Amaldagi</span>{% else %}<span class="chip y">Almashtirilgan</span>{% endif %}
+        {% if y.ogoh_soni %}<span class="chip y" title="{{ y.xabar }}">{{ y.ogoh_soni }} ogohlantirish</span>{% endif %}</td>
+      <td>{% if not y.faol %}<span class="muted">-</span>{% elif y.korinadi %}<span class="chip g">Ko'rsatiladi</span>{% else %}<span class="chip r">Yashirin (dam olish kuni)</span>{% endif %}</td>
+      <td>{% if y.yuklagan %}{{ y.yuklagan.first_name|default:y.yuklagan.username }}{% else %}-{% endif %}</td>
+      <td>{{ y.vaqt|sana_vaqt }}</td>
+      <td><div class="flex" style="gap:6px">
+        {% if y.faol and y.korinadi and rx.resp_dinamika_korish %}<a class="btn sec sm" href="{% url 'resp_dinamika' %}?b={{ y.sana|date:'Y-m-d' }}">Ochish</a>{% endif %}
+        {% if rx.resp_fayllar_yuklab %}<a class="btn sec sm" href="{% url 'resp_fayl_yuklab' y.id %}"><svg class="ic"><use href="#i-down"/></svg> PDF</a>{% endif %}
+        {% if rx.resp_fayllar_ochirish %}<form method="post" action="{% url 'resp_fayl_ochirish' y.id %}" onsubmit="return confirm('Bu PDF ni o\'chirasizmi?')">{% csrf_token %}<button class="btn sec sm" type="submit">O'chirish</button></form>{% endif %}
+      </div></td>
+    </tr>{% empty %}<tr><td colspan="8" class="muted" style="text-align:center;padding:28px">Hali PDF yuklanmagan.</td></tr>{% endfor %}
+    </tbody></table></div>
+  {% if sahifa.has_other_pages %}<div class="flex" style="gap:8px;margin-top:12px;justify-content:center">
+    {% if sahifa.has_previous %}<a class="btn sec sm" href="?p={{ sahifa.previous_page_number }}#fayllar-royxati">‹ Oldingi</a>{% endif %}
+    <span class="muted">{{ sahifa.number }} / {{ sahifa.paginator.num_pages }}</span>
+    {% if sahifa.has_next %}<a class="btn sec sm" href="?p={{ sahifa.next_page_number }}#fayllar-royxati">Keyingi ›</a>{% endif %}
+  </div>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var inp = document.getElementById('fayllar'); if (!inp) return;
+  var drop = document.getElementById('drop'), list = document.getElementById('filelist');
+  function show() { list.innerHTML = ''; Array.prototype.forEach.call(inp.files, function (f) { var s = document.createElement('span'); s.className = 'chip'; s.textContent = f.name + ' (' + Math.round(f.size / 1024) + ' KB)'; list.appendChild(s); }); }
+  inp.addEventListener('change', show);
+  ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { inp.files = e.dataTransfer.files; show(); });
+})();
+</script>
+{% endblock %}

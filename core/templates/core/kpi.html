@@ -1,0 +1,48 @@
+{% extends "core/base.html" %}
+{% load uzfmt %}
+{% block title %}KPI{% endblock %}
+{% block h1 %}KPI ko'rsatkichlari{% endblock %}
+{% block h1sub %}{{ oy_txt }}{% endblock %}
+{% block content %}
+<form class="card filtr" method="get" data-auto>
+  <label>Oy
+    <select name="oy">{% for o in oylar %}<option value="{{ o.iso }}" {% if o.iso == oy_iso %}selected{% endif %}>{{ o.txt }}</option>{% endfor %}</select>
+  </label>
+  {% if butun_viloyat %}
+  <label>Tuman / shahar
+    <select name="tuman"><option value="">Barcha tumanlar</option>{% for t in tumanlar %}<option value="{{ t.id }}" {% if tuman_id == t.id %}selected{% endif %}>{{ t.korsat }}</option>{% endfor %}</select>
+  </label>
+  {% endif %}
+  <span class="muted" style="font-size:12px;max-width:560px">Reja: oy boshidagi birinchi yuklangan fayl (yoki administrator kiritgan reja). Amalda = reja − hozirgi qoldiq. Bajarilishi = amalda / reja. Manfiy qiymat: qoldiq rejadan oshib ketgan.</span>
+</form>
+
+{% if tuman %}<div class="crumb"><a href="?oy={{ oy_iso }}">Qashqadaryo HETK</a> <span>›</span> <b>{{ tuman.korsat }}</b></div>{% endif %}
+<div class="legend-row">
+  {% for k in natija.korsatkichlar %}<span><b>{{ k.nom }}</b>: reja sanasi {{ k.bazaviy|kun|default:"-" }}, joriy {{ k.joriy|kun|default:"-" }}</span>{% endfor %}
+</div>
+<div class="tw">
+<table class="jadval">
+  <thead>
+    <tr>
+      <th class="nom" rowspan="2">{% if tuman %}Brigada{% else %}T(SH)ET nomi{% endif %}</th>
+      {% for k in natija.korsatkichlar %}<th colspan="4">{{ k.nom }}</th>{% endfor %}
+    </tr>
+    <tr>{% for k in natija.korsatkichlar %}<th>Reja</th><th>Amalda</th><th>Qoldiq</th><th>Bajarilishi</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+    <tr class="jami"><td class="nom">Jami</td>
+      {% for h in natija.jami %}<td class="son">{{ h.rt }}</td><td class="son">{{ h.at }}</td><td class="son">{{ h.qt }}</td>
+      <td class="son"><div class="flex" style="flex-wrap:nowrap;gap:8px"><div class="bar" style="flex:1"><i data-w="{% if h.foiz > 0 %}{% if h.foiz > 100 %}100{% else %}{{ h.foiz|stringformat:'.0f' }}{% endif %}{% else %}0{% endif %}" class="{% if h.foiz < 20 %}low{% endif %}"></i></div><span>{{ h.ft }}</span></div></td>{% endfor %}
+    </tr>
+    {% for r in natija.qatorlar %}
+    <tr>
+      <td class="nom">{% if not tuman and r.id %}<a href="?oy={{ oy_iso }}&tuman={{ r.id }}">{{ r.nom }}</a>{% else %}{{ r.nom }}{% endif %}</td>
+      {% for h in r.hujayra %}<td class="son">{{ h.rt }}</td><td class="son" style="color:{% if h.amalda < 0 %}var(--bad){% else %}inherit{% endif %}">{{ h.at }}</td><td class="son">{{ h.qt }}</td>
+      <td class="son"><div class="flex" style="flex-wrap:nowrap;gap:8px"><div class="bar" style="flex:1"><i data-w="{% if h.foiz > 0 %}{% if h.foiz > 100 %}100{% else %}{{ h.foiz|stringformat:'.0f' }}{% endif %}{% else %}0{% endif %}" class="{% if h.foiz < 20 %}low{% endif %}"></i></div><span style="color:{% if h.foiz < 0 %}var(--bad){% else %}inherit{% endif %}">{{ h.ft }}</span></div></td>{% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted" style="font-size:12px;margin-top:10px">Eslatma: "ASKUE ga mos bo'lmagan hisoblagichlar" va "CAS da bor, billingda yo'q hisoblagichlar" ko'rsatkichlari uchun CAS hisoboti hali yuklanmagan, shuning uchun ular bu yerda yo'q.</p>
+{% endblock %}

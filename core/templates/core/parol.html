@@ -1,0 +1,16 @@
+{% extends "core/base.html" %}
+{% block title %}Parolni almashtirish{% endblock %}
+{% block h1 %}Parolni almashtirish{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px">
+  <form method="post">{% csrf_token %}
+    {% if form.errors %}<div class="err">{% for f in form %}{% for e in f.errors %}{{ e }}<br>{% endfor %}{% endfor %}{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-grid" style="grid-template-columns:1fr">
+      <label>Eski parol {{ form.old_password }}</label>
+      <label>Yangi parol {{ form.new_password1 }}</label>
+      <label>Yangi parolni takrorlang {{ form.new_password2 }}</label>
+    </div>
+    <p style="margin-top:16px"><button class="btn" type="submit">Saqlash</button></p>
+  </form>
+</div>
+{% endblock %}

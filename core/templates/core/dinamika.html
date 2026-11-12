@@ -1,0 +1,51 @@
+{% extends "core/base.html" %}
+{% load uzfmt %}
+{% block title %}Dinamika{% endblock %}
+{% block h1 %}Dinamika jadvali{% endblock %}
+{% block h1sub %}{% if b %}{{ b|kun }}{% if a %} sanasi {{ a|kun }} bilan solishtirilmoqda{% else %} (solishtirish tanlanmagan){% endif %}{% endif %}{% endblock %}
+{% block topact %}{% if jadval and rx.dinamika_eksport %}<div class="flex" style="gap:8px;flex-wrap:wrap;justify-content:flex-end">
+  <a class="btn sec sm" href="?{{ params }}&format=xlsx" title="Ikkala jadval bitta Excel faylida (2 varaq){% if tuman %}, brigadalar kesimida{% else %}, tumanlar kesimida{% endif %}"><svg class="ic"><use href="#i-down"/></svg> Excel</a>
+  <a class="btn sec sm" href="?{{ params }}&format=pdf" title="Ikkala jadval bitta PDF da{% if tuman %} (brigadalar kesimida){% else %} (tumanlar kesimida){% endif %}"><svg class="ic"><use href="#i-pdf"/></svg> PDF</a>
+  {% if not tuman and tumanlar|length > 1 %}<a class="btn sec sm" href="?{{ params }}&format=zip" title="Har bir tuman uchun brigadalar kesimidagi dinamika alohida PDF, ZIP arxivda"><svg class="ic"><use href="#i-down"/></svg> Tumanlar · brigadalar (ZIP)</a>{% endif %}
+</div>{% endif %}{% endblock %}
+{% block content %}
+<div class="tabs">
+  {% for k, nom in sahifalar %}<a class="{% if k == sahifa %}on{% endif %}" href="?sahifa={{ k }}&b={{ b|date:'Y-m-d' }}&a={{ a|date:'Y-m-d' }}{% if tuman_id and butun_viloyat %}&tuman={{ tuman_id }}{% endif %}">{{ nom }}</a>{% endfor %}
+</div>
+
+<form class="card filtr" method="get" data-auto>
+  <input type="hidden" name="sahifa" value="{{ sahifa }}">
+  <label>Joriy sana
+    <select name="b">{% for s in sanalar %}<option value="{{ s.iso }}" {% if b|date:"Y-m-d" == s.iso %}selected{% endif %}>{{ s.txt }}</option>{% endfor %}</select>
+  </label>
+  <label>Solishtiriladigan sana
+    <select name="a"><option value="">Solishtirmaslik</option>{% for s in sanalar %}<option value="{{ s.iso }}" {% if a|date:"Y-m-d" == s.iso %}selected{% endif %}>{{ s.txt }}</option>{% endfor %}</select>
+  </label>
+  {% if butun_viloyat %}
+  <label>Tuman / shahar
+    <select name="tuman"><option value="">Barcha tumanlar</option>{% for t in tumanlar %}<option value="{{ t.id }}" {% if tuman_id == t.id %}selected{% endif %}>{{ t.korsat }}</option>{% endfor %}</select>
+  </label>
+  {% endif %}
+  {% if presetlar %}<div class="presetlar"><span class="muted" style="font-size:12px">Tez tanlash:</span>
+    {% for p in presetlar %}<a href="?sahifa={{ sahifa }}&b={{ b|date:'Y-m-d' }}&a={{ p.iso }}{% if tuman_id and butun_viloyat %}&tuman={{ tuman_id }}{% endif %}" title="{{ p.txt }}">{{ p.nom }}</a>{% endfor %}</div>{% endif %}
+</form>
+
+{% if tuman %}
+<div class="crumb">
+  {% if butun_viloyat %}<a href="?sahifa={{ sahifa }}&b={{ b|date:'Y-m-d' }}&a={{ a|date:'Y-m-d' }}">Qashqadaryo HETK</a> <span>›</span>{% endif %}
+  <b>{{ tuman.korsat }}</b> <span>›</span> <span>brigadalar kesimida</span>
+</div>
+{% endif %}
+
+{% if not jadval %}
+  <div class="card" style="text-align:center;padding:50px">Ma'lumot yuklanmagan.</div>
+{% else %}
+  {% for n in yoq_turlar %}<div class="err">{{ b|kun }} sanasi uchun "{{ n }}" turidagi fayl yuklanmagan.</div>{% endfor %}
+  {% if a %}{% for ok in jadval.bor_a %}{% if not ok %}<div class="err">{{ a|kun }} sanasi uchun ba'zi turdagi fayllar yuklanmagan, ularning farqlari ko'rsatilmaydi.</div>{% endif %}{% endfor %}{% endif %}
+  <div class="legend-row">
+    <span><i style="background:var(--bad)"></i>↑ ko'paygan (yomon)</span><span><i style="background:var(--good)"></i>↓ kamaygan (yaxshi)</span>
+    <span>Raqamni bosing: nomma-nom ro'yxat · farqni bosing: yangi paydo bo'lgan yoki tuzalgan qurilmalar</span>
+  </div>
+  {% include "core/_dinamika_jadval.html" %}
+{% endif %}
+{% endblock %}

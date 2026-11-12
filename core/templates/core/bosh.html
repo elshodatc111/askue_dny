@@ -1,0 +1,286 @@
+{% extends "core/base.html" %}
+{% load static uzfmt %}
+{% block title %}Bosh panel{% endblock %}
+{% block h1 %}{% if tuman %}{{ tuman.korsat }}{% else %}Bosh panel{% endif %}{% endblock %}
+{% block h1sub %}{% if b %}Ma'lumot sanasi: {{ b|kun }}{% if a %} · solishtirish: {{ a|kun }}{% endif %}{% endif %}{% endblock %}
+{% block content %}
+{% if not bosh_bor %}
+  <div class="card" style="text-align:center;padding:60px 20px">
+    <h3>Hali ma'lumot yuklanmagan</h3>
+    <p class="muted">CAS dan olingan Excel fayllarni yuklang.</p>
+    {% if admin_mi %}<a class="btn" href="{% url 'yuklash' %}">Fayl yuklash</a>{% endif %}
+  </div>
+{% else %}
+<form class="card filtr" method="get" data-auto>
+  <label>Joriy sana
+    <select name="b">{% for s in sanalar %}<option value="{{ s.iso }}" {% if b|date:"Y-m-d" == s.iso %}selected{% endif %}>{{ s.txt }}</option>{% endfor %}</select>
+  </label>
+  <label>Solishtirish sanasi
+    <select name="a"><option value="">Solishtirmaslik</option>{% for s in sanalar %}<option value="{{ s.iso }}" {% if a|date:"Y-m-d" == s.iso %}selected{% endif %}>{{ s.txt }}</option>{% endfor %}</select>
+  </label>
+  {% if butun_viloyat %}
+  <label>Tuman / shahar
+    <select name="tuman"><option value="">Butun viloyat</option>{% for t in tumanlar %}<option value="{{ t.id }}" {% if tuman_id == t.id %}selected{% endif %}>{{ t.korsat }}</option>{% endfor %}</select>
+  </label>
+  {% endif %}
+  <noscript><button class="btn" type="submit">Ko'rsatish</button></noscript>
+</form>
+
+<div class="grid g4">
+  {% for k in kartalar %}
+  <a class="kart card" href="{% url 'dinamika' %}?tur={{ k.tur }}&b={{ b|date:'Y-m-d' }}&a={{ a|date:'Y-m-d' }}{% if tuman_id %}&tuman={{ tuman_id }}{% endif %}"
+     style="--c: {% if k.tur == 'dcu' %}#4f46e5{% elif k.tur == 'gprs' %}#0d9488{% elif k.tur == 'nometer' %}#f59e0b{% else %}#dc2626{% endif %}">
+    <div class="t"><span class="ico"><svg class="ic">{% if k.tur == 'dcu' %}<use href="#i-wifi"/>{% elif k.tur == 'gprs' %}<use href="#i-bolt"/>{% elif k.tur == 'nometer' %}<use href="#i-chart"/>{% else %}<use href="#i-plug"/>{% endif %}</svg></span>
+      {% if k.tur == 'dcu' %}Offline konsentratorlar{% elif k.tur == 'gprs' %}Offline GPRS hisoblagichlar{% elif k.tur == 'nometer' %}Aloqadan chiqib ketgan hisoblagichlar{% else %}To'g'ridan-to'g'ri ulanish (Primichka){% endif %}</div>
+    {% if k.bor %}
+    <div class="n" data-count="{{ k.qiymat }}">0</div>
+    <div class="d">
+      {% if k.delta is not None %}
+        {% if k.delta > 0 %}<span class="delta yomon">↑ {{ k.delta_txt }}</span>{% elif k.delta < 0 %}<span class="delta yaxshi">↓ {{ k.delta_txt }}</span>{% else %}<span class="delta nol">o'zgarmadi</span>{% endif %}
+      {% endif %}
+      {% if k.tur == 'dcu' or k.tur == 'gprs' %}<span>jami {{ k.jami|fmt }} · {{ k.foiz|default:0 }}%</span>{% endif %}
+    </div>
+    {% if k.tur != 'direct' %}<div class="sub2"><span>3 kundan ortiq: <b>{{ k.k3|fmt }}</b></span><span>30 kundan ortiq: <b>{{ k.k30|fmt }}</b></span></div>{% endif %}
+    <div class="spark" id="spark-{{ k.tur }}"></div>
+    {% else %}
+    <div class="n muted">-</div><div class="d">Bu sana uchun fayl yuklanmagan</div>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+<p class="muted" style="font-size:12px;margin:8px 2px 0">«3 kundan ortiq» - oxirgi aloqa {{ k3_sana|date:"d.m" }} va undan oldin bo'lganlar; «30 kundan ortiq» - oxirgi aloqa {{ k30_sana|date:"d.m" }} va undan oldin bo'lganlar (ma'lumot sanasi {{ b|date:"d.m" }} ga nisbatan).</p>
+
+<div class="grid g3 mt">
+  <div class="card"><h3>Aloqadan chiqib ketgan hisoblagichlar: muddat bo'yicha</h3><div class="sub">{{ daraja_nom }} kesimida, qancha kundan beri ma'lumot yig'ilmayapti</div><div class="chart tall" id="ch-nometer"></div></div>
+  <div class="grid" style="gap:18px">
+    <div class="card"><h3>Muddat bo'yicha ulush</h3><div class="chart sm" id="ch-donut1"></div></div>
+    <div class="card"><h3>Abonent turi bo'yicha</h3><div class="chart sm" id="ch-donut2"></div></div>
+  </div>
+</div>
+
+<div class="grid g2 mt">
+  <div class="card"><h3>Offline konsentrator va GPRS hisoblagichlar</h3><div class="sub">{{ daraja_nom }} kesimida (jami offline)</div><div class="chart" id="ch-offline"></div></div>
+  <div class="card"><h3>Offline qurilmalar: muddat bo'yicha</h3><div class="sub">Konsentrator va GPRS hisoblagichlar, qancha kundan beri aloqada emas</div><div class="chart" id="ch-muddat"></div></div>
+</div>
+
+<div class="card mt">
+  <div class="flex" style="align-items:flex-start;flex-wrap:wrap;gap:10px">
+    <div class="grow"><h3>Kunlik dinamika</h3><div class="sub" id="tr-sub">Yuklangan kunlar bo'yicha o'zgarish</div></div>
+    <div class="seg" id="trend-tabs">
+      <a href="#" data-t="dcu" class="on">Konsentrator</a><a href="#" data-t="gprs">GPRS</a><a href="#" data-t="nometer">Aloqadan chiqqan</a><a href="#" data-t="direct">Primichka</a>
+    </div>
+  </div>
+  <div class="seg" id="trend-metrics" style="margin-top:6px"></div>
+  <div class="stat-row" id="trend-stat"></div>
+  <div class="chart tall" id="ch-trend" style="height:380px"></div>
+  <div class="muted" id="tr-note" style="font-size:12px;margin-top:4px"></div>
+</div>
+
+<div class="card mt">
+  <h3>{{ daraja_nom }} bo'yicha qisqacha ko'rsatkichlar</h3>
+  <div class="sub">Raqamni bosib nomma-nom ro'yxatni ochishingiz mumkin</div>
+  <div class="tw"><table class="jadval">
+    <thead><tr>
+      <th class="nom">{% if tuman %}Brigada{% else %}Tuman / shahar{% endif %}</th>
+      <th>Offline konsentrator<small class="hint">3 kundan ortiq ({{ k3_sana|date:"d.m" }} va undan oldin)</small></th>
+      <th>Offline GPRS<small class="hint">30 kundan ortiq ({{ k30_sana|date:"d.m" }} va undan oldin)</small></th>
+      <th>Aloqadan chiqib ketgan hisoblagichlar<small class="hint">jami</small></th>
+      <th>Shundan 30-90 kun</th>
+      <th>Shundan 90 kundan ortiq</th>
+      <th>To'g'ridan-to'g'ri ulanish (Primichka)</th>
+    </tr></thead>
+    <tbody>
+    <tr class="jami">
+      <td class="nom">{% if tuman %}{{ tuman.korsat }} jami{% else %}Jami{% endif %}</td>
+      <td class="son">{{ qator_jami.dcu|fmt }}</td><td class="son">{{ qator_jami.gprs|fmt }}</td><td class="son">{{ qator_jami.nometer|fmt }}</td><td class="son">{{ qator_jami.nometer3090|fmt }}</td><td class="son">{{ qator_jami.nometer90|fmt }}</td><td class="son">{{ qator_jami.direct|fmt }}</td>
+    </tr>
+    {% for r in qator %}
+    <tr>
+      <td class="nom">{% if tuman %}{{ r.nom }}{% else %}<a href="?tuman={{ r.id }}&b={{ b|date:'Y-m-d' }}&a={{ a|date:'Y-m-d' }}">{{ r.nom }}</a>{% endif %}</td>
+      <td class="son">{% if r.dcu %}<a href="{% url 'royxat' %}?tur=dcu&ust=k3&b={{ b|date:'Y-m-d' }}{% if tuman %}&tuman={{ tuman_id }}&brigada={{ r.id|default:'yoq' }}{% else %}&tuman={{ r.id }}{% endif %}">{{ r.dcu|fmt }}</a>{% else %}0{% endif %}</td>
+      <td class="son">{% if r.gprs %}<a href="{% url 'royxat' %}?tur=gprs&ust=k30&b={{ b|date:'Y-m-d' }}{% if tuman %}&tuman={{ tuman_id }}&brigada={{ r.id|default:'yoq' }}{% else %}&tuman={{ r.id }}{% endif %}">{{ r.gprs|fmt }}</a>{% else %}0{% endif %}</td>
+      <td class="son">{% if r.nometer %}<a href="{% url 'royxat' %}?tur=nometer&b={{ b|date:'Y-m-d' }}{% if tuman %}&tuman={{ tuman_id }}&brigada={{ r.id|default:'yoq' }}{% else %}&tuman={{ r.id }}{% endif %}">{{ r.nometer|fmt }}</a>{% else %}0{% endif %}</td>
+      <td class="son">{% if r.nometer3090 %}<a href="{% url 'royxat' %}?tur=nometer&ust=b3&b={{ b|date:'Y-m-d' }}{% if tuman %}&tuman={{ tuman_id }}&brigada={{ r.id|default:'yoq' }}{% else %}&tuman={{ r.id }}{% endif %}">{{ r.nometer3090|fmt }}</a>{% else %}0{% endif %}</td>
+      <td class="son">{% if r.nometer90 %}<a href="{% url 'royxat' %}?tur=nometer&ust=b4&b={{ b|date:'Y-m-d' }}{% if tuman %}&tuman={{ tuman_id }}&brigada={{ r.id|default:'yoq' }}{% else %}&tuman={{ r.id }}{% endif %}">{{ r.nometer90|fmt }}</a>{% else %}0{% endif %}</td>
+      <td class="son">{% if r.direct %}<a href="{% url 'royxat' %}?tur=direct&b={{ b|date:'Y-m-d' }}{% if tuman %}&tuman={{ tuman_id }}&brigada={{ r.id|default:'yoq' }}{% else %}&tuman={{ r.id }}{% endif %}">{{ r.direct|fmt }}</a>{% else %}0{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody></table></div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if bosh_bor %}
+<script src="{% static 'core/vendor/echarts.min.js' %}"></script>
+{{ grafik|json_script:"grafik-data" }}
+<script>
+(function () {
+  var G = JSON.parse(document.getElementById('grafik-data').textContent);
+  var B = {b1: '#38bdf8', b2: '#fbbf24', b3: '#fb923c', b4: '#ef4444'};
+  var NOM = {b1: '2-7 kun', b2: '7-30 kun', b3: '30-90 kun', b4: '90 kundan ortiq'};
+  var COL = {dcu: '#4f46e5', gprs: '#0d9488', nometer: '#f59e0b', direct: '#dc2626'};
+  var anim = {animationDuration: 1100, animationEasing: 'cubicOut', animationDelay: function (i) { return i * 40; }};
+
+  ['dcu', 'gprs', 'nometer', 'direct'].forEach(function (t) {
+    var el = document.getElementById('spark-' + t); if (!el) return;
+    var key = (t === 'dcu' || t === 'gprs') ? 'offline' : 'jami';
+    var d = (G['trend_' + t] || []).slice(-20).map(function (x) { return x[key]; });
+    if (d.length < 2) return;
+    var c = echarts.init(el);
+    c.setOption({grid: {left: 6, right: 6, top: 4, bottom: 2}, xAxis: {type: 'category', show: false, data: d.map(function (_, i) { return i; })}, yAxis: {type: 'value', show: false, scale: true},
+      series: [{type: 'line', data: d, smooth: true, symbol: 'none', lineStyle: {width: 2.5, color: COL[t]}, areaStyle: {color: COL[t], opacity: .14}}], animationDuration: 1400});
+    window.addEventListener('resize', function () { c.resize(); });
+  });
+
+  chartYarat('ch-nometer', function (r) {
+    return Object.assign({}, anim, {
+      tooltip: {trigger: 'axis', axisPointer: {type: 'shadow'}},
+      legend: {top: 0, textStyle: {color: r.muted}},
+      grid: {left: 8, right: 12, top: 36, bottom: 8, containLabel: true},
+      xAxis: {type: 'category', data: G.nomlar, axisLabel: {color: r.muted, rotate: G.nomlar.length > 8 ? 35 : 0, interval: 0}, axisLine: {lineStyle: {color: r.line}}},
+      yAxis: {type: 'value', axisLabel: {color: r.muted}, splitLine: {lineStyle: {color: r.line}}},
+      series: ['b1', 'b2', 'b3', 'b4'].map(function (k) { return {name: NOM[k], type: 'bar', stack: 'a', data: G.nometer_b[k], itemStyle: {color: B[k]}, emphasis: {focus: 'series'}}; })
+    });
+  });
+  function donut(id, data, colors) {
+    chartYarat(id, function (r) {
+      return Object.assign({}, anim, {
+        tooltip: {trigger: 'item', formatter: '{b}: {c} ({d}%)'},
+        legend: {bottom: 0, textStyle: {color: r.muted}, itemWidth: 10, itemHeight: 10},
+        color: colors,
+        series: [{type: 'pie', radius: ['48%', '72%'], center: ['50%', '44%'], data: data, label: {show: false}, itemStyle: {borderColor: r.card, borderWidth: 3, borderRadius: 6},
+          emphasis: {label: {show: true, fontWeight: 'bold', color: r.text, formatter: '{d}%'}}}]
+      });
+    });
+  }
+  donut('ch-donut1', G.donut_muddat, [B.b1, B.b2, B.b3, B.b4]);
+  donut('ch-donut2', G.donut_turi, ['#4f46e5', '#0d9488', '#f59e0b']);
+
+  chartYarat('ch-offline', function (r) {
+    return Object.assign({}, anim, {
+      tooltip: {trigger: 'axis', axisPointer: {type: 'shadow'}},
+      legend: {top: 0, textStyle: {color: r.muted}},
+      grid: {left: 8, right: 12, top: 36, bottom: 8, containLabel: true},
+      xAxis: {type: 'category', data: G.nomlar, axisLabel: {color: r.muted, rotate: G.nomlar.length > 8 ? 35 : 0, interval: 0}, axisLine: {lineStyle: {color: r.line}}},
+      yAxis: {type: 'value', axisLabel: {color: r.muted}, splitLine: {lineStyle: {color: r.line}}},
+      series: [
+        {name: 'Konsentratorlar', type: 'bar', data: G.dcu_off, itemStyle: {color: COL.dcu, borderRadius: [5, 5, 0, 0]}},
+        {name: 'GPRS hisoblagichlar', type: 'bar', data: G.gprs_off, itemStyle: {color: COL.gprs, borderRadius: [5, 5, 0, 0]}}
+      ]
+    });
+  });
+
+  // ---- offline muddatlari (konsentrator va GPRS) ----
+  chartYarat('ch-muddat', function (r) {
+    var kal = ['b0', 'b1', 'b2', 'b3', 'b4'], nom = {b0: '1 kungacha', b1: '2-7 kun', b2: '7-30 kun', b3: '30-90 kun', b4: '90 kundan ortiq'};
+    var rang = {b0: '#86efac', b1: '#38bdf8', b2: '#fbbf24', b3: '#fb923c', b4: '#ef4444'};
+    return Object.assign({}, anim, {
+      tooltip: {trigger: 'axis', axisPointer: {type: 'shadow'}},
+      legend: {top: 0, textStyle: {color: r.muted}},
+      grid: {left: 8, right: 24, top: 36, bottom: 8, containLabel: true},
+      xAxis: {type: 'value', axisLabel: {color: r.muted}, splitLine: {lineStyle: {color: r.line}}},
+      yAxis: {type: 'category', data: ['Konsentrator', 'GPRS'], axisLabel: {color: r.text}, axisLine: {lineStyle: {color: r.line}}},
+      series: kal.map(function (k) {
+        return {name: nom[k], type: 'bar', stack: 'a', data: [G.off_muddat.dcu[k], G.off_muddat.gprs[k]], itemStyle: {color: rang[k]},
+          label: {show: true, color: '#0f172a', fontSize: 11, formatter: function (p) { return p.value > 0 ? window.sonFmt(p.value) : ''; }}, emphasis: {focus: 'series'}};
+      })
+    });
+  });
+
+  // ---- kunlik dinamika ----
+  var TUR_NOM = {dcu: 'Konsentratorlar', gprs: 'GPRS hisoblagichlar', nometer: 'Aloqadan chiqib ketgan hisoblagichlar', direct: "To'g'ridan-to'g'ri ulanishlar (Primichka)"};
+  var METRIKA = {
+    dcu: [['offline', 'Offline jami', 0], ['k3', '3 kundan ortiq', 0], ['k30', '30 kundan ortiq', 0], ['online', 'Online', 1]],
+    gprs: [['offline', 'Offline jami', 0], ['k3', '3 kundan ortiq', 0], ['k30', '30 kundan ortiq', 0], ['online', 'Online', 1]],
+    nometer: [['jami', 'Jami', 0], ['k3', '3 kundan ortiq', 0], ['k30', '30 kundan ortiq', 0]],
+    direct: [['jami', 'Jami', 0]]
+  };
+  var cur = 'dcu', met = 'offline';
+  function metNom() { var m = METRIKA[cur].filter(function (x) { return x[0] === met; })[0]; return m || METRIKA[cur][0]; }
+  function farq(n) { return (n > 0 ? '+' : n < 0 ? '-' : '') + window.sonFmt(Math.abs(n)); }
+  function rangFarq(n, yaxshiOsish) {
+    if (n === 0) return '#94a3b8';
+    return ((n > 0) === !!yaxshiOsish) ? '#16a34a' : '#dc2626';
+  }
+  function seriya() {
+    var d = G['trend_' + cur] || [];
+    return {d: d, v: d.map(function (x) { return x[met]; }), s: d.map(function (x) { return x.sana; })};
+  }
+  function metrikalar() {
+    var box = document.getElementById('trend-metrics'); box.innerHTML = '';
+    METRIKA[cur].forEach(function (m) {
+      var a = document.createElement('a'); a.href = '#'; a.setAttribute('data-m', m[0]); a.textContent = m[1];
+      if (m[0] === met) a.className = 'on'; box.appendChild(a);
+    });
+    box.style.display = METRIKA[cur].length > 1 ? '' : 'none';
+  }
+  function statlar() {
+    var q = seriya(), m = metNom(), v = q.v, n = v.length, el = document.getElementById('trend-stat');
+    document.getElementById('tr-sub').textContent = TUR_NOM[cur] + ': ' + m[1] + ' (yuklangan kunlar bo\'yicha)';
+    if (!n) { el.innerHTML = ''; return; }
+    function blok(t, qiy, d) {
+      var s = '<div class="s"><small>' + t + '</small><b>' + window.sonFmt(qiy) + '</b>';
+      if (d !== null) s += ' <span class="delta" style="background:transparent;color:' + rangFarq(d, m[2]) + '">' + farq(d) + '</span>';
+      return s + '</div>';
+    }
+    var h = blok('Oxirgi kun (' + q.s[n - 1] + ')', v[n - 1], n > 1 ? v[n - 1] - v[n - 2] : null);
+    if (n > 1) {
+      h += blok('Birinchi kunga nisbatan (' + q.s[0] + ')', v[n - 1], v[n - 1] - v[0]);
+      h += blok('Eng yuqori', Math.max.apply(null, v), null) + blok('Eng past', Math.min.apply(null, v), null);
+    }
+    el.innerHTML = h;
+    document.getElementById('tr-note').textContent = n < 2 ? "Dinamikani ko'rish uchun kamida 2 ta kunning ma'lumoti yuklangan bo'lishi kerak. Hozircha 1 ta kun bor." : "Yuqoridagi grafik - kunlik qiymat, pastdagisi - oldingi kunga nisbatan o'zgarish (qizil: yomonlashgan, yashil: yaxshilangan).";
+  }
+  var trend = chartYarat('ch-trend', function (r) {
+    var q = seriya(), m = metNom(), v = q.v;
+    var farqlar = v.map(function (x, i) { return i === 0 ? null : x - v[i - 1]; });
+    var rang = COL[cur];
+    return {
+      animationDuration: 900, animationEasing: 'cubicOut',
+      tooltip: {trigger: 'axis', axisPointer: {type: 'line', link: [{xAxisIndex: 'all'}]},
+        formatter: function (ps) {
+          var i = ps[0].dataIndex, t = '<b>' + q.s[i] + '</b><br/>' + m[1] + ': <b>' + window.sonFmt(v[i]) + '</b>';
+          if (farqlar[i] !== null) t += '<br/>Oldingi kunga nisbatan: <b style="color:' + rangFarq(farqlar[i], m[2]) + '">' + farq(farqlar[i]) + '</b>';
+          return t;
+        }},
+      grid: [{left: 8, right: 22, top: 40, height: '48%', containLabel: true}, {left: 8, right: 22, top: '76%', height: '14%', containLabel: true}],
+      xAxis: [
+        {type: 'category', gridIndex: 0, data: q.s, boundaryGap: true, axisLabel: {show: false}, axisTick: {show: false}, axisLine: {lineStyle: {color: r.line}}},
+        {type: 'category', gridIndex: 1, data: q.s, boundaryGap: true, axisLabel: {color: r.muted}, axisLine: {lineStyle: {color: r.line}}}
+      ],
+      yAxis: [
+        {type: 'value', gridIndex: 0, scale: true, name: m[1], nameTextStyle: {color: r.muted, align: 'left'}, axisLabel: {color: r.muted}, splitLine: {lineStyle: {color: r.line}}},
+        {type: 'value', gridIndex: 1, name: "o'zgarish", nameTextStyle: {color: r.muted, align: 'left'}, axisLabel: {color: r.muted}, splitLine: {show: false}}
+      ],
+      series: [
+        {type: 'line', xAxisIndex: 0, yAxisIndex: 0, data: v, smooth: false, symbol: 'circle', symbolSize: 9,
+          lineStyle: {width: 3, color: rang}, itemStyle: {color: rang, borderColor: '#fff', borderWidth: 2}, areaStyle: {color: rang, opacity: .12},
+          label: {show: v.length <= 20, position: 'top', color: r.text, fontWeight: 600, formatter: function (p) { return window.sonFmt(p.value); }}},
+        {type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: farqlar.map(function (x) { return x === null ? null : {value: x, itemStyle: {color: rangFarq(x, m[2]), borderRadius: x >= 0 ? [4, 4, 0, 0] : [0, 0, 4, 4]}}; }),
+          barMaxWidth: 34, label: {show: v.length <= 20, position: 'top', color: r.muted, fontSize: 11, formatter: function (p) { return p.value ? farq(p.value) : ''; }}}
+      ]
+    };
+  });
+  function qaytaCiz() {
+    var f = window.chartlar.filter(function (x) { return x.c === trend; })[0];
+    if (f && trend) trend.setOption(f.f(window.ranglar()), true);
+    statlar();
+  }
+  metrikalar(); statlar();
+  document.getElementById('trend-tabs').addEventListener('click', function (e) {
+    var a = e.target.closest('a[data-t]'); if (!a) return; e.preventDefault();
+    cur = a.getAttribute('data-t'); met = METRIKA[cur][0][0];
+    this.querySelectorAll('a').forEach(function (x) { x.classList.toggle('on', x === a); });
+    metrikalar(); qaytaCiz();
+  });
+  document.getElementById('trend-metrics').addEventListener('click', function (e) {
+    var a = e.target.closest('a[data-m]'); if (!a) return; e.preventDefault();
+    met = a.getAttribute('data-m');
+    this.querySelectorAll('a').forEach(function (x) { x.classList.toggle('on', x === a); });
+    qaytaCiz();
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

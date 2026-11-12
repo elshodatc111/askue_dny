@@ -1,0 +1,35 @@
+{% extends "core/base.html" %}
+{% block title %}TP larni ko'chirish{% endblock %}
+{% block h1 %}TP larni brigadalar orasida ko'chirish{% endblock %}
+{% block h1sub %}Tanlangan TP lar boshqa brigadaga biriktiriladi{% endblock %}
+{% block content %}
+<form class="card filtr" method="get" data-auto>
+  <label>Tuman
+    <select name="tuman">{% for t in tumanlar %}<option value="{{ t.id }}" {% if tuman and t.id == tuman.id %}selected{% endif %}>{{ t.korsat }}</option>{% endfor %}</select>
+  </label>
+  <label>Hozirgi brigada
+    <select name="manba"><option value="">Hammasi</option><option value="yoq" {% if manba == 'yoq' %}selected{% endif %}>Biriktirilmagan</option>{% for b in brigadalar %}<option value="{{ b.id }}" {% if manba == b.id|stringformat:"s" %}selected{% endif %}>{{ b.nom }}</option>{% endfor %}</select>
+  </label>
+  <label>Qidirish <input type="search" name="q" value="{{ q }}" placeholder="TP, feeder, podstansiya"></label>
+  <button class="btn" type="submit">Ko'rsatish</button>
+</form>
+{% if tuman %}
+<form method="post">{% csrf_token %}
+  <input type="hidden" name="tuman" value="{{ tuman.id }}"><input type="hidden" name="manba" value="{{ manba }}"><input type="hidden" name="q" value="{{ q }}">
+  <div class="card flex" style="margin-bottom:12px">
+    <span class="chip">Topildi: {{ jami }} ta{% if jami > 500 %} (dastlabki 500 tasi){% endif %}</span>
+    <span class="grow"></span>
+    {% if rx.tp_kochirish_kochirish %}<label class="flex">Ko'chirish:
+      <select name="maqsad" required><option value="">Maqsad brigada...</option><option value="yoq">Biriktirilmagan</option>{% for b in brigadalar %}<option value="{{ b.id }}">{{ b.nom }}</option>{% endfor %}</select>
+    </label>
+    <button class="btn" type="submit">Tanlanganlarni ko'chirish</button>{% else %}<span class="muted">Sizda ko'chirish ruxsati yo'q (faqat ko'rish).</span>{% endif %}
+  </div>
+  <div class="tw"><table class="jadval">
+    <thead><tr><th style="width:40px"><input type="checkbox" id="hammasi"></th><th>Podstansiya</th><th>Feeder</th><th>TP</th><th>Egasi</th><th>Brigada</th></tr></thead>
+    <tbody>{% for tp in tplar %}
+      <tr><td><input type="checkbox" name="tp" value="{{ tp.id }}"></td><td>{{ tp.podstansiya }}</td><td>{{ tp.feeder }}</td><td><b>{{ tp.raqam }}</b></td><td>{{ tp.egasi }}</td><td>{{ tp.brigada.nom|default:"-" }}</td></tr>
+    {% empty %}<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">TP topilmadi.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</form>
+{% endif %}
+{% endblock %}

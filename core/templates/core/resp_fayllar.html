@@ -1,0 +1,34 @@
+{% extends "core/base.html" %}
+{% load uzfmt %}
+{% block title %}Yuklangan PDF lar{% endblock %}
+{% block h1 %}Yuklangan PDF lar{% endblock %}
+{% block h1sub %}Respublikadan kelgan barcha hisobotlar saqlanadi{% endblock %}
+{% block topact %}{% if rx.resp_yuklash_korish %}<a class="btn sm" href="{% url 'resp_yuklash' %}"><svg class="ic"><use href="#i-upload"/></svg> PDF yuklash</a>{% endif %}{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="tw"><table class="jadval">
+    <thead><tr><th>Hisobot sanasi</th><th>Fayl</th><th>Hajmi</th><th>Holat</th><th>Ko'rinishi</th><th>Yuklagan</th><th>Yuklangan vaqt</th><th></th></tr></thead>
+    <tbody>
+    {% for y in sahifa %}<tr>
+      <td><b>{{ y.sana|kun }}</b> <span class="muted" style="font-size:12px">{{ y.kun_nomi }}</span></td>
+      <td class="wrap">{{ y.fayl_nomi }}</td>
+      <td class="son">{{ y.kb|fmt }} KB</td>
+      <td>{% if y.faol %}<span class="chip g">Amaldagi</span>{% else %}<span class="chip y">Almashtirilgan</span>{% endif %}
+        {% if y.ogoh_soni %}<span class="chip y" title="{{ y.xabar }}">{{ y.ogoh_soni }} ogohlantirish</span>{% endif %}</td>
+      <td>{% if not y.faol %}<span class="muted">-</span>{% elif y.korinadi %}<span class="chip g">Ko'rsatiladi</span>{% else %}<span class="chip r">Yashirin (dam olish kuni)</span>{% endif %}</td>
+      <td>{% if y.yuklagan %}{{ y.yuklagan.first_name|default:y.yuklagan.username }}{% else %}-{% endif %}</td>
+      <td>{{ y.vaqt|sana_vaqt }}</td>
+      <td><div class="flex" style="gap:6px">
+        {% if y.faol and y.korinadi and rx.resp_dinamika_korish %}<a class="btn sec sm" href="{% url 'resp_dinamika' %}?b={{ y.sana|date:'Y-m-d' }}">Ochish</a>{% endif %}
+        {% if rx.resp_fayllar_yuklab %}<a class="btn sec sm" href="{% url 'resp_fayl_yuklab' y.id %}"><svg class="ic"><use href="#i-down"/></svg> PDF</a>{% endif %}
+        {% if rx.resp_fayllar_ochirish %}<form method="post" action="{% url 'resp_fayl_ochirish' y.id %}" onsubmit="return confirm('Bu PDF ni o\'chirasizmi?')">{% csrf_token %}<button class="btn sec sm" type="submit">O'chirish</button></form>{% endif %}
+      </div></td>
+    </tr>{% empty %}<tr><td colspan="8" class="muted" style="text-align:center;padding:28px">Hali PDF yuklanmagan.</td></tr>{% endfor %}
+    </tbody></table></div>
+  {% if sahifa.has_other_pages %}<div class="flex" style="gap:8px;margin-top:12px;justify-content:center">
+    {% if sahifa.has_previous %}<a class="btn sec sm" href="?p={{ sahifa.previous_page_number }}">‹ Oldingi</a>{% endif %}
+    <span class="muted">{{ sahifa.number }} / {{ sahifa.paginator.num_pages }}</span>
+    {% if sahifa.has_next %}<a class="btn sec sm" href="?p={{ sahifa.next_page_number }}">Keyingi ›</a>{% endif %}
+  </div>{% endif %}
+</div>
+{% endblock %}

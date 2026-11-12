@@ -1,0 +1,101 @@
+{% load static %}<!DOCTYPE html>
+<html lang="uz" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Hodimlar nazorati{% endblock %} - Qashqadaryo HETK</title>
+<script>try{var t=localStorage.getItem('tema');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<link rel="icon" href="{% static 'core/img/logo.svg' %}" type="image/svg+xml">
+<link rel="stylesheet" href="{% static 'core/css/app.css' %}">
+<link rel="stylesheet" href="{% static 'core/css/energy.css' %}">
+{% block head %}{% endblock %}
+</head>
+<body data-sect="{{ request.resolver_match.url_name }}">
+{% include "core/_logo.html" %}
+<div class="fon" aria-hidden="true">{% include "core/_fon.html" %}</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16v-5"/><path d="M12 16V7"/><path d="M16 16v-8"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-12a7 7 0 10-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.8c2 .6 3.1 2.3 3.5 5.2"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 9a15 15 0 0120 0M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19.5" r="1"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 2v6M15 2v6"/><path d="M6 8h12v4a6 6 0 01-12 0z"/><path d="M12 18v4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 13A9 9 0 1111 3a7 7 0 0010 10z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-pdf" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 14h6M9 18h4"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 4H5v16h4"/><path d="M16 8l4 4-4 4"/><path d="M20 12H9"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.8 2.7 4.2 5.7 4.2 9s-1.4 6.3-4.2 9c-2.8-2.7-4.2-5.7-4.2-9S9.2 5.7 12 3z"/></symbol>
+  <symbol id="i-files" viewBox="0 0 24 24"><path d="M8 3h8l4 4v12H8z"/><path d="M15 3v5h5"/><path d="M4 7v14h12"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></symbol>
+</svg>
+<div class="scrim" id="scrim"></div>
+<div class="app">
+  <aside class="side" id="side">
+    <div class="brand">
+      <div class="logo"><svg viewBox="26 28 512 540"><use href="#logo-mark"/></svg></div>
+      <div><b>Hodimlar nazorati</b><small>Hududiy Elektr Tarmoqlari</small><small class="hetk">Qashqadaryo HETK</small></div>
+    </div>
+    <nav class="nav">
+      {% with p=request.resolver_match.url_name %}
+      <h6>Tahlil</h6>
+      {% if rx.bosh_korish %}<a href="{% url 'bosh' %}" class="{% if p == 'bosh' %}on{% endif %}"><svg class="ic"><use href="#i-home"/></svg> Bosh panel</a>{% endif %}
+      {% if rx.dinamika_korish %}<a href="{% url 'dinamika' %}" class="{% if p == 'dinamika' %}on{% endif %}"><svg class="ic"><use href="#i-chart"/></svg> Dinamika jadvallari</a>{% endif %}
+      {% if rx.resp_dinamika_korish %}<a href="{% url 'resp_dinamika' %}" class="{% if p == 'resp_dinamika' %}on{% endif %}"><svg class="ic"><use href="#i-globe"/></svg> Respublika dinamikasi</a>{% endif %}
+      {% if rx.royxat_korish %}<a href="{% url 'royxat' %}" class="{% if p == 'royxat' %}on{% endif %}"><svg class="ic"><use href="#i-list"/></svg> Nomma-nom ro'yxat</a>{% endif %}
+      {% if rx.xarita_korish %}<a href="{% url 'xarita' %}" class="{% if p == 'xarita' %}on{% endif %}"><svg class="ic"><use href="#i-map"/></svg> Xarita</a>{% endif %}
+      {% if boshqaruv_bor %}
+      <h6>Boshqaruv</h6>
+      {% if rx.yuklash_korish %}<a href="{% url 'yuklash' %}" class="{% if p == 'yuklash' %}on{% endif %}"><svg class="ic"><use href="#i-upload"/></svg> Fayl yuklash</a>{% endif %}
+      {% if rx.resp_yuklash_korish %}<a href="{% url 'resp_yuklash' %}" class="{% if p == 'resp_yuklash' %}on{% endif %}"><svg class="ic"><use href="#i-upload"/></svg> Respublika PDF yuklash</a>{% endif %}
+      {% if rx.brigadalar_korish %}<a href="{% url 'brigadalar' %}" class="{% if p == 'brigadalar' or p == 'brigada_tahrir' %}on{% endif %}"><svg class="ic"><use href="#i-team"/></svg> Brigadalar</a>{% endif %}
+      {% if rx.tp_kochirish_korish %}<a href="{% url 'tp_kochirish' %}" class="{% if p == 'tp_kochirish' %}on{% endif %}"><svg class="ic"><use href="#i-move"/></svg> TP larni ko'chirish</a>{% endif %}
+      {% if rx.foydalanuvchilar_korish %}<a href="{% url 'foydalanuvchilar' %}" class="{% if p == 'foydalanuvchilar' or p == 'foydalanuvchi_tahrir' or p == 'foydalanuvchi_yangi' %}on{% endif %}"><svg class="ic"><use href="#i-users"/></svg> Foydalanuvchilar</a>{% endif %}
+      {% endif %}
+      {% endwith %}
+    </nav>
+    <div class="side-foot">
+      <div class="u">{{ request.user.first_name|default:request.user.username }}</div>
+      <div class="r">{{ rol_nomi }}{% if not butun_viloyat %} · {{ request.user.profil.tuman|default:"tuman biriktirilmagan" }}{% endif %}</div>
+      <div class="acts">
+        <a href="{% url 'parol' %}">Parol</a>
+        <button type="button" data-logout style="flex:1">Chiqish</button>
+      </div>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <button class="icon-btn" id="menu-btn" aria-label="Menyu"><svg class="ic"><use href="#i-menu"/></svg></button>
+      <span class="sect-ic" aria-hidden="true"><svg class="ic">{% with p=request.resolver_match.url_name %}<use href="#{% if p == 'bosh' %}i-home{% elif p == 'dinamika' %}i-chart{% elif p == 'royxat' %}i-list{% elif p == 'xarita' %}i-map{% elif p == 'kpi' %}i-target{% elif p == 'yuklash' or p == 'resp_yuklash' %}i-upload{% elif p == 'resp_dinamika' %}i-globe{% elif p == 'resp_fayllar' %}i-files{% elif p == 'brigadalar' or p == 'brigada_tahrir' %}i-team{% elif p == 'tp_kochirish' %}i-move{% elif p == 'foydalanuvchilar' or p == 'foydalanuvchi_tahrir' or p == 'foydalanuvchi_yangi' %}i-users{% else %}i-bolt{% endif %}"/>{% endwith %}</svg></span>
+      <h1>{% block h1 %}{% endblock %}<small>{% block h1sub %}{% endblock %}</small></h1>
+      {% block topact %}{% endblock %}
+      <button class="icon-btn" id="theme-btn" title="Yorug' / qorong'i"><svg class="ic"><use href="#i-moon"/></svg></button>
+    </header>
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+<div class="modal" id="logout-modal" role="dialog" aria-modal="true" aria-labelledby="lm-t" hidden>
+  <div class="modal-box">
+    <div class="modal-ic"><svg class="ic"><use href="#i-logout"/></svg></div>
+    <h3 id="lm-t">Tizimdan chiqmoqchimisiz?</h3>
+    <p>Chiqqaningizdan so'ng qayta kirish uchun login va parol kerak bo'ladi.</p>
+    <div class="modal-act">
+      <button type="button" class="btn sec" data-logout-cancel>Bekor qilish</button>
+      <form method="post" action="{% url 'chiqish' %}">{% csrf_token %}<button type="submit" class="btn red">Chiqish</button></form>
+    </div>
+  </div>
+</div>
+{% if messages %}
+<div class="toasts">{% for m in messages %}<div class="toast {{ m.tags }}">{{ m }}</div>{% endfor %}</div>
+{% endif %}
+<script src="{% static 'core/js/app.js' %}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

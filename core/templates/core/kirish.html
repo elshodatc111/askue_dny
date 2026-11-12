@@ -1,0 +1,40 @@
+{% load static %}<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kirish - Hodimlar nazorati</title>
+<link rel="icon" href="{% static 'core/img/logo.svg' %}" type="image/svg+xml">
+<link rel="stylesheet" href="{% static 'core/css/app.css' %}">
+<link rel="stylesheet" href="{% static 'core/css/energy.css' %}">
+</head>
+<body class="login-page">
+{% include "core/_logo.html" %}
+<div class="login-bg">
+  <div class="fon login-fon" aria-hidden="true">{% include "core/_fon.html" %}</div>
+  <div class="login-wrap">
+    <div class="login-hero">
+      <div class="hero-logo"><svg viewBox="26 28 512 540"><use href="#logo-mark"/></svg></div>
+      <div class="hero-t">Hududiy Elektr Tarmoqlari</div>
+      <div class="hero-s">Qashqadaryo HETK</div>
+    </div>
+    <form class="login" method="post">{% csrf_token %}
+      <h2>Hodimlar nazorati</h2>
+      <p>Tizimga kirish uchun login va parolni kiriting</p>
+      {% if form.errors %}<div class="err">Login yoki parol noto'g'ri.</div>{% endif %}
+      <label for="id_username">Login</label>
+      <div class="inp"><svg class="ic"><use href="#i-user"/></svg><input type="text" name="username" id="id_username" autofocus autocomplete="username" required></div>
+      <label for="id_password">Parol</label>
+      <div class="inp"><svg class="ic"><use href="#i-lock"/></svg><input type="password" name="password" id="id_password" autocomplete="current-password" required></div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="btn" type="submit"><svg class="ic"><use href="#i-bolt"/></svg> Kirish</button>
+    </form>
+  </div>
+</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-4 4-6 8-6s7.200 2 8 6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></symbol>
+</svg>
+</body>
+</html>

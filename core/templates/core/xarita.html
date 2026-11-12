@@ -1,0 +1,132 @@
+{% extends "core/base.html" %}
+{% load static uzfmt %}
+{% block title %}Xarita{% endblock %}
+{% block head %}<link rel="stylesheet" href="{% static 'core/vendor/leaflet/leaflet.css' %}">
+<link rel="stylesheet" href="{% static 'core/vendor/leaflet/MarkerCluster.css' %}">
+<link rel="stylesheet" href="{% static 'core/vendor/leaflet/MarkerCluster.Default.css' %}">{% endblock %}
+{% block h1 %}Xarita{% endblock %}
+{% block h1sub %}GPS koordinatasi mavjud qurilmalar{% if b %} · {{ b|kun }}{% endif %}{% endblock %}
+{% block content %}
+<div class="tabs">
+  {% for t, nom in turlar %}<a class="{% if t == tur %}on{% endif %}" href="?tur={{ t }}&b={{ b|date:'Y-m-d' }}{% if tuman_id and butun_viloyat %}&tuman={{ tuman_id }}{% endif %}">{{ nom }}</a>{% endfor %}
+</div>
+<form class="card filtr" method="get" data-auto>
+  <input type="hidden" name="tur" value="{{ tur }}">
+  <label>Sana
+    <select name="b">{% for s in sanalar %}<option value="{{ s.iso }}" {% if b|date:"Y-m-d" == s.iso %}selected{% endif %}>{{ s.txt }}</option>{% endfor %}</select>
+  </label>
+  {% if butun_viloyat %}
+  <label>Tuman / shahar
+    <select name="tuman"><option value="">Barcha tumanlar</option>{% for t in tumanlar %}<option value="{{ t.id }}" {% if tuman_id == t.id %}selected{% endif %}>{{ t.korsat }}</option>{% endfor %}</select>
+  </label>
+  {% endif %}
+  {% if brigadalar %}
+  <label>Brigada
+    <select name="brigada"><option value="">Barcha brigadalar</option><option value="yoq" {% if brigada == 'yoq' %}selected{% endif %}>Biriktirilmagan</option>{% for br in brigadalar %}<option value="{{ br.id }}" {% if brigada == br.id|stringformat:"s" %}selected{% endif %}>{{ br.nom }}</option>{% endfor %}</select>
+  </label>
+  {% endif %}
+  <label>Muddat
+    <select name="ust">
+      <option value="">Hammasi</option>
+      <option value="b1" {% if ust == 'b1' %}selected{% endif %}>2-7 kun</option><option value="b2" {% if ust == 'b2' %}selected{% endif %}>7-30 kun</option>
+      <option value="b3" {% if ust == 'b3' %}selected{% endif %}>30-90 kun</option><option value="b4" {% if ust == 'b4' %}selected{% endif %}>90 kundan ortiq</option>
+    </select>
+  </label>
+  <span class="chip" id="soni">yuklanmoqda...</span>
+</form>
+<div class="xar-bar">
+  <div class="legend-row" id="tur-leg"></div>
+  <div class="legend-row xar-kun">
+    <b>Aloqasiz muddati:</b>
+    <span><i style="background:#16a34a"></i>1 kungacha</span><span><i style="background:#38bdf8"></i>2-7 kun</span><span><i style="background:#fbbf24"></i>7-30 kun</span>
+    <span><i style="background:#fb923c"></i>30-90 kun</span><span><i style="background:#ef4444"></i>90 kundan ortiq</span><span><i style="background:#94a3b8"></i>noma'lum</span>
+  </div>
+</div>
+<div id="harita"></div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'core/vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'core/vendor/leaflet/leaflet.markercluster.js' %}"></script>
+<script>
+(function () {
+  var map = L.map('harita', {preferCanvas: true, zoomControl: true}).setView([38.85, 65.8], 8);
+  var osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, referrerPolicy: 'strict-origin-when-cross-origin', attribution: '&copy; OpenStreetMap'});
+  var carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {subdomains: 'abcd', maxZoom: 19, attribution: '&copy; OpenStreetMap, &copy; CARTO'});
+  var xato = 0, almashdi = false;
+  osm.on('tileerror', function () { xato++; if (xato >= 3 && !almashdi) { almashdi = true; map.removeLayer(osm); carto.addTo(map); } });
+  osm.addTo(map);
+  L.control.scale({imperial: false}).addTo(map);
+
+  // ---- turlar: ikonka glifi (SVG) va nomi
+  var G = {
+    dcu: '<path d="M2 9a15 15 0 0120 0M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19.5" r="1.3"/>',
+    gprs: '<path d="M4 20v-4M9 20v-8M14 20V8M19 20V4"/>',
+    nometer: '<path d="M4 17a8 8 0 1116 0"/><path d="M12 17l3.5-5"/><path d="M3 21h18"/><path d="M4 4l16 16" stroke="#fff"/>',
+    direct: '<path d="M9 2v6M15 2v6"/><path d="M6 8h12v4a6 6 0 01-12 0z"/><path d="M12 18v4"/>'
+  };
+  var TUR = {
+    dcu: {nom: 'Konsentrator', c: '#4f46e5'}, gprs: {nom: 'GPRS hisoblagich', c: '#0d9488'},
+    nometer: {nom: 'Aloqadan chiqib ketgan hisoblagich', c: '#d97706'}, direct: {nom: "To'g'ridan-to'g'ri ulanish (Primichka)", c: '#dc2626'}
+  };
+  function svg(t, sz, col) { return '<svg viewBox="0 0 24 24" width="' + sz + '" height="' + sz + '" fill="none" stroke="' + (col || '#fff') + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + G[t] + '</svg>'; }
+  function rang(k) { return k < 0 ? '#94a3b8' : k <= 1 ? '#16a34a' : k <= 7 ? '#38bdf8' : k <= 30 ? '#fbbf24' : k <= 90 ? '#fb923c' : '#ef4444'; }
+  function esc(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]; }); }
+  function holat(k) { return k < 0 ? "Oxirgi aloqa vaqti noma'lum" : k <= 1 ? '1 kungacha aloqasiz' : k + ' kun aloqasiz'; }
+  function ikon(t, k) {
+    return L.divIcon({className: 'pin-w', iconSize: [34, 42], iconAnchor: [17, 40], tooltipAnchor: [20, -22], popupAnchor: [0, -36],
+      html: '<div class="pin" style="--c:' + rang(k) + '"><span class="pin-g">' + svg(t, 17) + '</span></div>'});
+  }
+  function kartochka(p) {
+    var t = p[2], k = p[4], q = [];
+    function qator(n, v) { if (v) q.push('<tr><td>' + n + '</td><td>' + esc(v) + '</td></tr>'); }
+    qator('Raqam', p[3]); qator('Tuman', p[5]); qator('Feeder', p[6]); qator('TP', p[7]);
+    qator('Abonent', p[8]); qator('Hisob raqam', p[9]);
+    qator('Abonent turi', {aholi: 'Aholi', ulgurji: 'Ulgurji', balans: 'Balans'}[p[10]] || p[10]);
+    qator('Aloqa turi', p[13]); qator('Oxirgi aloqa', p[12]); qator('Manzil', p[11]);
+    return '<div class="xt"><div class="xt-h" style="background:' + TUR[t].c + '"><span>' + svg(t, 18) + '</span><b>' + esc(TUR[t].nom) + '</b></div>' +
+      '<div class="xt-s" style="--c:' + rang(k) + '"><i></i>' + esc(holat(k)) + '</div><table>' + q.join('') + '</table></div>';
+  }
+  function klaster(ntur) {
+    return L.markerClusterGroup({
+      maxClusterRadius: 52, showCoverageOnHover: false, disableClusteringAtZoom: 16, chunkedLoading: true,
+      iconCreateFunction: function (c) {
+        var n = c.getChildCount(), sz = n < 50 ? 38 : n < 500 ? 46 : 54;
+        return L.divIcon({className: 'kl-w', iconSize: [sz, sz],
+          html: '<div class="kl" style="--c:' + (ntur ? TUR[ntur].c : '#2563eb') + ';width:' + sz + 'px;height:' + sz + 'px"><b>' + n + '</b></div>'});
+      }
+    });
+  }
+
+  var qs = window.location.search || '?tur={{ tur }}';
+  fetch('{% url "xarita_api" %}' + qs, {credentials: 'same-origin'}).then(function (r) { return r.json(); }).then(function (d) {
+    var guruh = {}, sana = {}, pts = [];
+    Object.keys(TUR).forEach(function (t) { guruh[t] = klaster(t); sana[t] = 0; });
+    d.nuqtalar.forEach(function (p) {
+      var m = L.marker([p[0], p[1]], {icon: ikon(p[2], p[4]), riseOnHover: true});
+      var h = kartochka(p);
+      m.bindTooltip(h, {direction: 'auto', className: 'xt-tip', opacity: 1});
+      m.bindPopup(h, {className: 'xt-pop', maxWidth: 320});
+      guruh[p[2]].addLayer(m); sana[p[2]]++;
+      if (p[0] > 36 && p[0] < 43 && p[1] > 54 && p[1] < 69) pts.push([p[0], p[1]]);
+    });
+    var leg = document.getElementById('tur-leg'), yoq = {};
+    Object.keys(TUR).forEach(function (t) {
+      if (!d.hisob[t] && d.hisob[t] !== 0) return;
+      if ('{{ tur }}' !== 'all' && '{{ tur }}' !== t) return;
+      map.addLayer(guruh[t]);
+      var el = document.createElement('a');
+      el.href = '#'; el.className = 'tur-chip on'; el.style.setProperty('--c', TUR[t].c);
+      var ko = d.hisob[t] > sana[t] ? ' <small>(' + sana[t] + ' ta ko\'rsatilgan)</small>' : '';
+      el.innerHTML = '<span class="tur-ic">' + svg(t, 15) + '</span>' + esc(TUR[t].nom) + ' <b>' + d.hisob[t] + '</b>' + ko;
+      el.addEventListener('click', function (e) {
+        e.preventDefault(); yoq[t] = !yoq[t]; el.classList.toggle('on', !yoq[t]);
+        if (yoq[t]) map.removeLayer(guruh[t]); else map.addLayer(guruh[t]);
+      });
+      leg.appendChild(el);
+    });
+    document.getElementById('soni').textContent = d.jami + " ta nuqta (koordinatasi bor)";
+    if (pts.length) map.fitBounds(pts, {padding: [40, 40], maxZoom: 13});
+  }).catch(function () { document.getElementById('soni').textContent = 'xatolik'; });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "core/base.html" %}
+{% block title %}{{ b.nom }}{% endblock %}
+{% block h1 %}{{ b.nom }}{% endblock %}
+{% block h1sub %}{{ b.tuman.korsat }} · {{ tp_soni }} ta TP{% endblock %}
+{% block content %}
+<div class="grid g3">
+  <form class="card" method="post">{% csrf_token %}
+    <h3>Brigada ma'lumotlari</h3>
+    <div class="form-grid" style="margin-top:12px">
+      <label>Nomi <input type="text" name="nom" value="{{ b.nom }}" required></label>
+      <label>Tartib raqami <input type="number" name="raqam" value="{{ b.raqam }}" min="1"></label>
+      <label>Telefon <input type="text" name="telefon" value="{{ b.telefon }}"></label>
+    </div>
+    <label style="display:block;margin-top:16px;font-weight:600;font-size:12.5px;color:var(--muted)">Hodimlar (har bir qatorda bittadan: F.I.Sh.; JShShIR; telefon)</label>
+    <textarea name="hodimlar" style="min-height:180px;margin-top:6px">{{ matn }}</textarea>
+    {% if b.manba %}<p class="muted" style="font-size:12px">CAS dagi asl yozuv: {{ b.manba }}</p>{% endif %}
+    <p style="margin-top:14px" class="flex"><button class="btn" type="submit">Saqlash</button><a class="btn sec" href="/brigadalar/?tuman={{ b.tuman_id }}">Orqaga</a></p>
+  </form>
+  {% if rx.brigadalar_ochirish %}<form class="card" method="post" action="{% url 'brigada_ochirish' b.id %}" onsubmit="return confirm('Brigadani o\'chirishni tasdiqlaysizmi?')">{% csrf_token %}
+    <h3>Brigadani o'chirish yoki birlashtirish</h3>
+    <div class="sub">Birlashtirsangiz, bu brigadaning {{ tp_soni }} ta TP si tanlangan brigadaga o'tadi. Aks holda TP lar "biriktirilmagan" bo'lib qoladi.</div>
+    <select name="maqsad" style="width:100%"><option value="">Birlashtirmasdan o'chirish</option>{% for x in boshqalar %}<option value="{{ x.id }}">{{ x.nom }} ga birlashtirish</option>{% endfor %}</select>
+    <p style="margin-top:14px"><button class="btn red" type="submit">O'chirish</button></p>
+  </form>{% endif %}
+</div>
+{% endblock %}

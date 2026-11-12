@@ -1,0 +1,88 @@
+{% extends "core/base.html" %}
+{% load uzfmt %}
+{% block title %}Respublika dinamikasi{% endblock %}
+{% block h1 %}Respublika dinamikasi{% endblock %}
+{% block h1sub %}{% if b %}{{ b_yorlig }}{% if a %} · {{ a|kun }} bilan solishtirilmoqda{% else %} · solishtirilmagan{% endif %}{% endif %}{% endblock %}
+{% block topact %}{% if jadval and rx.resp_dinamika_eksport %}<div class="flex" style="gap:8px;flex-wrap:wrap;justify-content:flex-end">
+  <a class="btn sec sm" href="?{{ bq }}&format=xlsx" title="7 ta varaq, har bir jadval alohida"><svg class="ic"><use href="#i-down"/></svg> Excel</a>
+  <a class="btn sec sm" href="?{{ bq }}&format=pdf" title="7 betli PDF, asl hisobot ko'rinishida"><svg class="ic"><use href="#i-pdf"/></svg> PDF</a>
+</div>{% endif %}{% endblock %}
+{% block content %}
+{% if not b %}
+  <div class="card" style="text-align:center;padding:50px">
+    <h3>Hali respublika hisoboti yuklanmagan</h3>
+    <p class="muted">Respublikadan kelgan kunlik dinamika PDF sini yuklang.</p>
+    {% if rx.resp_yuklash_korish %}<p><a class="btn" href="{% url 'resp_yuklash' %}"><svg class="ic"><use href="#i-upload"/></svg> PDF yuklash</a></p>{% endif %}
+  </div>
+{% else %}
+<div class="tabs">
+  {% for k, nom in tablar %}<a class="{% if k == sahifa %}on{% endif %}" href="?s={{ k }}&{{ bq }}">{{ nom }}</a>{% endfor %}
+</div>
+
+<form class="card filtr" method="get" data-auto>
+  <input type="hidden" name="s" value="{{ sahifa }}">
+  <label>Hisobot sanasi
+    <select name="b">{% for s in kunlar_b %}<option value="{{ s.iso }}" {% if b|date:"Y-m-d" == s.iso %}selected{% endif %}>{{ s.txt }}</option>{% endfor %}</select>
+  </label>
+  <label>Solishtirish sanasi
+    <select name="a">
+      <option value="oy" {% if a_param == "oy" %}selected{% endif %}>Oy boshiga nisbatan</option>
+      <option value="old" {% if a_param == "old" %}selected{% endif %}>Oldingi ish kuniga nisbatan</option>
+      <option value="yoq" {% if a_param == "yoq" %}selected{% endif %}>Solishtirmaslik</option>
+      {% for s in kunlar_a %}<option value="{{ s.iso }}" {% if a_param == s.iso %}selected{% endif %}>{{ s.txt }}</option>{% endfor %}
+    </select>
+  </label>
+  <div class="presetlar"><span class="muted" style="font-size:12px">Tez tanlash:</span>
+    <a href="?s={{ sahifa }}&b={{ b|date:'Y-m-d' }}&a=oy">Oy boshiga nisbatan</a>
+    <a href="?s={{ sahifa }}&b={{ b|date:'Y-m-d' }}&a=old">Oldingi ish kuniga nisbatan</a>
+  </div>
+</form>
+
+{% if a_izoh %}<div class="err" style="background:var(--warn-bg);color:#b45309">{{ a_izoh }}</div>{% endif %}
+{% if ogoh %}<details class="err" style="background:var(--warn-bg);color:#b45309"><summary>Bu kun PDF sini o'qishda {{ ogoh|length }} ta ogohlantirish bor (raqamlar PDF bilan solishtirilsin)</summary>{% for o in ogoh %}<div style="font-size:12px">{{ o }}</div>{% endfor %}</details>{% endif %}
+
+<div class="legend-row">
+  <span><b class="rt-up">▲</b> qizil: ko'paygan</span><span><b class="rt-dn">▼</b> ko'k: kamaygan</span>
+  <span>Dinamika: {% if a %}{{ a|kun }} - {{ b|kun }}{% else %}{{ b|kun }}{% endif %}</span>
+  {% if yuklangan %}<span>Ma'lumot yuklangan: {{ yuklangan|sana_vaqt }}</span>{% endif %}
+</div>
+
+<div class="rt-nom">{{ jadval.sarlavha }}</div>
+<div class="tw">
+  <table class="rt">
+    <thead>
+      {% for qator in jadval.bosh %}<tr>
+        {% if forloop.first %}<th class="nom" rowspan="{{ jadval.bosh|length }}">Hudud nomi</th>{% endif %}
+        {% for h in qator %}<th colspan="{{ h.1 }}" rowspan="{{ h.2 }}" class="h-{{ h.3 }}{% if h.0 == 'soni' or h.0 == '%' %} h-s{% endif %}">{% if h.0 == "↑↓" %}<span class="rt-up">▲</span><span class="rt-dn">▼</span>{% else %}{{ h.0 }}{% endif %}</th>{% endfor %}
+      </tr>{% endfor %}
+    </thead>
+    <tbody>
+      {% for r in jadval.qatorlar %}<tr class="{% if r.jami %}jami{% endif %}">
+        <td class="nom">{{ r.nom }}</td>
+        {% for c in r.katak %}{% if c.kind == "d" %}<td class="d">{% if c.t %}<span class="{{ c.cls }}">{% if c.cls == "up" %}▲{% else %}▼{% endif %} {{ c.t }}</span>{% endif %}</td>
+        {% else %}<td class="s {% if c.kind == 'p' %}p{% endif %} r-{{ c.rang }}">{{ c.t }}</td>{% endif %}{% endfor %}
+      </tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if kunlar_boshqaruv %}
+<details class="card mt" id="kunlar">
+  <summary><b>Kunlarni belgilash</b> <span class="muted" style="font-size:12px">· yuklangan kunlar: dam olish kunlari ko'rsatilmaydi (shanba, yakshanba), kerak bo'lsa qo'lda o'zgartiring</span></summary>
+  <div class="tw" style="margin-top:12px"><table class="jadval">
+    <thead><tr><th>Kun</th><th>Holat</th><th></th></tr></thead>
+    <tbody>
+    {% for k in kunlar_boshqaruv %}<tr>
+      <td><b>{{ k.txt }}</b></td>
+      <td>{% if k.korinadi %}<span class="chip g">Ko'rsatiladi</span>{% else %}<span class="chip r">Yashirin (dam olish kuni)</span>{% endif %}
+        {% if k.belgi == "ish" %}<span class="chip y">qo'lda: ish kuni</span>{% elif k.belgi == "dam" %}<span class="chip y">qo'lda: dam olish kuni</span>{% endif %}</td>
+      <td><form method="post" action="{% url 'resp_kun' %}" class="flex" style="gap:6px">{% csrf_token %}<input type="hidden" name="sana" value="{{ k.iso }}"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+        {% if not k.korinadi %}<button class="btn sm" name="holat" value="ish" type="submit">Ish kuni qilish</button>{% else %}<button class="btn sec sm" name="holat" value="dam" type="submit">Dam olish kuni qilish</button>{% endif %}
+        {% if k.belgi %}<button class="btn sec sm" name="holat" value="standart" type="submit">Standartga qaytarish</button>{% endif %}
+      </form></td>
+    </tr>{% endfor %}
+    </tbody></table></div>
+</details>
+{% endif %}
+{% endif %}
+{% endblock %}

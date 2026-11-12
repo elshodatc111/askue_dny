@@ -1,0 +1,91 @@
+{% extends "core/base.html" %}
+{% load uzfmt %}
+{% block title %}Nomma-nom ro'yxat{% endblock %}
+{% block h1 %}{{ sarlavha }}{% endblock %}
+{% block h1sub %}Nomma-nom ro'yxat{% if b %} · {{ b|kun }}{% endif %}{% endblock %}
+{% block topact %}{% if sahifa and rx.royxat_eksport %}<a class="btn sec sm" href="?{{ params }}&format=xlsx"><svg class="ic"><use href="#i-down"/></svg> Excelga yuklash</a>{% endif %}{% endblock %}
+{% block content %}
+<div class="tabs">
+  {% for t, nom in turlar %}<a class="{% if t == tur %}on{% endif %}" href="?tur={{ t }}&b={{ b|date:'Y-m-d' }}{% if tuman_id and butun_viloyat %}&tuman={{ tuman_id }}{% endif %}">{{ nom }}</a>{% endfor %}
+</div>
+
+<form class="card filtr" method="get" data-auto>
+  <input type="hidden" name="tur" value="{{ tur }}"><input type="hidden" name="ust" value="{{ ust }}">
+  {% if holat %}<input type="hidden" name="holat" value="{{ holat }}"><input type="hidden" name="a" value="{{ a|date:'Y-m-d' }}">{% endif %}
+  <label>Sana
+    <select name="b">{% for s in sanalar %}<option value="{{ s.iso }}" {% if b|date:"Y-m-d" == s.iso %}selected{% endif %}>{{ s.txt }}</option>{% endfor %}</select>
+  </label>
+  {% if butun_viloyat %}
+  <label>Tuman / shahar
+    <select name="tuman"><option value="">Barcha tumanlar</option>{% for t in tumanlar %}<option value="{{ t.id }}" {% if tuman_id == t.id %}selected{% endif %}>{{ t.korsat }}</option>{% endfor %}</select>
+  </label>
+  {% endif %}
+  {% if brigadalar %}
+  <label>Brigada
+    <select name="brigada"><option value="">Barcha brigadalar</option><option value="yoq" {% if brigada == 'yoq' %}selected{% endif %}>Biriktirilmagan</option>{% for br in brigadalar %}<option value="{{ br.id }}" {% if brigada == br.id|stringformat:"s" %}selected{% endif %}>{{ br.nom }}</option>{% endfor %}</select>
+  </label>
+  {% endif %}
+  <label>Qidirish
+    <input type="search" name="q" value="{{ q }}" placeholder="raqam, abonent, TP, manzil...">
+  </label>
+  <button class="btn" type="submit">Qidirish</button>
+  <a class="btn sec" href="{% url 'xarita' %}?tur={{ tur }}&b={{ b|date:'Y-m-d' }}&ust={{ ust }}{% if tuman_id %}&tuman={{ tuman_id }}{% endif %}{% if brigada %}&brigada={{ brigada }}{% endif %}"><svg class="ic"><use href="#i-map"/></svg> Xaritada</a>
+</form>
+
+<div class="flex" style="margin-bottom:12px">
+  <span class="chip">Jami: {{ jami_soni|fmt }} ta</span>
+  {% if nom_ust %}<span class="chip y">Filtr: {{ nom_ust }}</span>{% endif %}
+  {% if holat == 'yangi' %}<span class="chip r">Yangi paydo bo'lgan ({{ a|kun }} da yo'q edi)</span>{% endif %}
+  {% if holat == 'tuzalgan' %}<span class="chip g">Tuzalgan ({{ a|kun }} da bor edi, {{ b|kun }} da yo'q)</span>{% endif %}
+  {% if tur == 'dcu' or tur == 'gprs' %}<span class="muted" style="font-size:12px">Bu yerda faqat offline qurilmalar ko'rsatiladi.</span>{% endif %}
+</div>
+
+{% if not sahifa %}
+  <div class="card" style="text-align:center;padding:50px">Ma'lumot yuklanmagan.</div>
+{% else %}
+<div class="tw">
+  <table class="jadval">
+    <thead><tr>
+      <th>Tuman</th><th>Podstansiya</th><th>Feeder</th><th>TP</th><th>Brigada</th>
+      {% if tur == 'dcu' or tur == 'gprs' %}
+        <th>Qurilma raqami</th><th>Oxirgi aloqa</th><th>Muddat</th><th>Operator</th><th>IP</th><th>GPS</th>
+      {% elif tur == 'nometer' %}
+        <th>Hisoblagich</th><th>Hisob raqami</th><th>Abonent</th><th>Turi</th><th>Aloqa</th><th>Muddat</th><th>Manzil</th><th>GPS</th>
+      {% else %}
+        <th>Hisoblagich</th><th>Hisob raqami</th><th>Abonent</th><th>Turi</th><th>Manzil</th><th>GPS</th>
+      {% endif %}
+    </tr></thead>
+    <tbody>
+    {% for k in sahifa %}
+      <tr>
+        <td>{{ k.tp.tuman.korsat }}</td><td>{{ k.tp.podstansiya }}</td><td>{{ k.tp.feeder }}</td><td>{{ k.tp.raqam }}</td>
+        <td>{% if k.tp.brigada %}{{ k.tp.brigada.nom }}{% else %}<span class="muted">-</span>{% endif %}</td>
+        <td><b>{{ k.raqam }}</b></td>
+        {% if tur == 'dcu' or tur == 'gprs' %}
+          <td>{{ k.vaqt|sana_vaqt }}</td>
+          <td>{% if k.kun is not None %}<span class="badge {% if k.kun <= 1 %}k0{% elif k.kun <= 7 %}k1{% elif k.kun <= 30 %}k2{% elif k.kun <= 90 %}k3{% else %}k4{% endif %}">{{ k.kun }} kun</span>{% endif %}</td>
+          <td>{{ k.operator }}</td><td>{{ k.ip }}</td>
+        {% else %}
+          <td>{{ k.hisob }}</td><td class="wrap">{{ k.abonent }}</td>
+          <td>{% if k.abonent_turi == 'aholi' %}Aholi{% elif k.abonent_turi == 'ulgurji' %}Ulgurji{% elif k.abonent_turi == 'balans' %}Balans{% else %}{{ k.abonent_turi }}{% endif %}</td>
+          {% if tur == 'nometer' %}
+            <td>{{ k.aloqa_turi }}</td>
+            <td>{% if k.kun is not None %}<span class="badge {% if k.kun <= 1 %}k0{% elif k.kun <= 7 %}k1{% elif k.kun <= 30 %}k2{% elif k.kun <= 90 %}k3{% else %}k4{% endif %}">{{ k.kun }} kun</span>{% endif %}</td>
+          {% endif %}
+          <td class="wrap">{{ k.manzil }}</td>
+        {% endif %}
+        <td>{% if k.lat %}<a target="_blank" rel="noopener" href="https://www.google.com/maps?q={{ k.lat|stringformat:'.6f' }},{{ k.lon|stringformat:'.6f' }}">xarita</a>{% else %}<span class="muted">-</span>{% endif %}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="14" style="text-align:center;padding:30px" class="muted">Bu filtr bo'yicha qurilma topilmadi.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="pager">
+  {% if sahifa.has_previous %}<a href="?{{ params }}&page={{ sahifa.previous_page_number }}">‹ Oldingi</a>{% endif %}
+  <span class="on">{{ sahifa.number }} / {{ sahifa.paginator.num_pages }}</span>
+  {% if sahifa.has_next %}<a href="?{{ params }}&page={{ sahifa.next_page_number }}">Keyingi ›</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}
