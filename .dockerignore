@@ -1,0 +1,11 @@
+.git
+.gitignore
+.env
+venv/
+wheels/
+staticfiles/
+uploads/
+**/__pycache__/
+*.pyc
+*.bat
+.claude

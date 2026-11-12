@@ -1,0 +1,61 @@
+# Hodimlar nazorati (ASKUE dinamika) - o'z MySQL bazasi bilan, boshqa loyihalardan to'liq ajratilgan.
+name: askue
+
+services:
+  db:
+    image: mysql:8.4
+    container_name: askue-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD .env da yo'q}
+      MYSQL_DATABASE: ${DB_NAME:-askue}
+      MYSQL_USER: ${DB_USER:-askue}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD .env da yo'q}
+      TZ: Asia/Tashkent
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --innodb-buffer-pool-size=256M --max-connections=100
+    volumes:
+      - askue_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  web:
+    build: .
+    image: askue/web
+    container_name: askue-web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY .env da yo'q}
+      DEBUG: "0"
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-}
+      HTTPS: "0"
+      DB_ENGINE: mysql
+      DB_NAME: ${DB_NAME:-askue}
+      DB_USER: ${DB_USER:-askue}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: db
+      DB_PORT: "3306"
+      DETAIL_RETENTION_DAYS: ${DETAIL_RETENTION_DAYS:-180}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    ports:
+      - "${WEB_PORT:-7009}:8000"
+    volumes:
+      - askue_uploads:/app/uploads
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  askue_db:
+  askue_uploads:
