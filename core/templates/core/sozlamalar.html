@@ -1,0 +1,73 @@
+{% extends "core/base.html" %}
+{% load uzfmt %}
+{% block title %}Sozlamalar{% endblock %}
+{% block h1 %}Sozlamalar{% endblock %}
+{% block h1sub %}Telegram bot va guruhlar{% endblock %}
+{% block content %}
+{% if not rx.sozlamalar_tahrirlash %}<div class="err" style="background:var(--warn-bg);color:#b45309">Sizda sozlamalarni o'zgartirish ruxsati yo'q, faqat ko'rishingiz mumkin.</div>{% endif %}
+<div class="grid g2">
+  <div class="card">
+    <h3>1. Telegram bot</h3>
+    <div class="sub">@BotFather orqali bot yarating va uning tokenini shu yerga kiriting.</div>
+    {% if token_bor %}<p style="margin:6px 0 12px"><span class="chip g">Ulangan: {{ bot_nomi }}</span> <span class="muted" style="font-size:12px">token: {{ token_niqob }}</span></p>
+    {% else %}<p style="margin:6px 0 12px"><span class="chip r">Bot ulanmagan</span></p>{% endif %}
+    {% if rx.sozlamalar_tahrirlash %}
+    <form method="post" class="flex" style="gap:8px;align-items:stretch">{% csrf_token %}<input type="hidden" name="amal" value="token">
+      <input type="password" name="token" placeholder="{% if token_bor %}Yangi token (almashtirish uchun){% else %}123456:ABC-DEF...{% endif %}" autocomplete="off" style="flex:1;min-width:220px">
+      <button class="btn" type="submit"><svg class="ic"><use href="#i-send"/></svg> {% if token_bor %}Almashtirish{% else %}Ulash{% endif %}</button>
+    </form>
+    {% if token_bor %}<form method="post" style="margin-top:8px" onsubmit="return confirm('Bot tokenini o\'chirasizmi? Telegramga yuborish to\'xtaydi.')">{% csrf_token %}<input type="hidden" name="amal" value="token"><input type="hidden" name="token" value=""><button class="btn sec sm" type="submit">Tokenni o'chirish</button></form>{% endif %}
+    {% endif %}
+  </div>
+  <div class="card">
+    <h3>Qanday ulanadi</h3>
+    <ol class="muted" style="padding-left:18px;line-height:1.7;margin:8px 0 0">
+      <li>@BotFather da bot yarating, tokenni chap tomondagi maydonga kiriting.</li>
+      <li>Botni kerakli guruhga qo'shing va <b>administrator</b> qiling (fayl yuborish uchun).</li>
+      <li>Guruhga bitta xabar yozing, so'ng <b>«Guruhlarni aniqlash»</b> tugmasini bosing. Guruh ro'yxatga tushadi.</li>
+      <li>Topilmasa, guruhning Chat ID sini qo'lda kiriting (masalan <code>-1001234567890</code>).</li>
+      <li>Dinamika jadvali va Respublika dinamikasi sahifalaridagi «Telegram» tugmalari shu guruhlarga yuboradi.</li>
+    </ol>
+  </div>
+</div>
+
+<div class="card mt">
+  <div class="flex" style="justify-content:space-between">
+    <div><h3>2. Guruhlar</h3><div class="sub" style="margin:0">Fayllar yuboriladigan guruhlar ro'yxati. Yoqilgan guruhlar yuborish oynasida ko'rinadi.</div></div>
+    {% if rx.sozlamalar_tahrirlash and token_bor %}<form method="post">{% csrf_token %}<input type="hidden" name="amal" value="aniqlash"><button class="btn" type="submit">Guruhlarni aniqlash</button></form>{% endif %}
+  </div>
+  <div class="tw" style="margin-top:12px"><table class="jadval">
+    <thead><tr><th>Guruh nomi</th><th>Chat ID</th><th>Turi</th><th>Holat</th><th></th></tr></thead>
+    <tbody>
+    {% for g in guruhlar %}<tr>
+      <td><b>{{ g.nom }}</b></td><td><code>{{ g.chat_id }}</code></td><td>{{ g.tur|default:"-" }}</td>
+      <td>{% if g.faol %}<span class="chip g">Yoqilgan</span>{% else %}<span class="chip r">O'chirilgan</span>{% endif %}</td>
+      <td>{% if rx.sozlamalar_tahrirlash %}<div class="flex" style="gap:6px">
+        <form method="post">{% csrf_token %}<input type="hidden" name="amal" value="sinov"><input type="hidden" name="id" value="{{ g.id }}"><button class="btn sec sm" type="submit" {% if not token_bor %}disabled{% endif %}>Sinov xabari</button></form>
+        <form method="post">{% csrf_token %}<input type="hidden" name="amal" value="almashtir"><input type="hidden" name="id" value="{{ g.id }}"><button class="btn sec sm" type="submit">{% if g.faol %}O'chirish{% else %}Yoqish{% endif %}</button></form>
+        <form method="post" onsubmit="return confirm('Guruhni ro\'yxatdan olib tashlaysizmi?')">{% csrf_token %}<input type="hidden" name="amal" value="ochirish"><input type="hidden" name="id" value="{{ g.id }}"><button class="btn sec sm" type="submit">Olib tashlash</button></form>
+      </div>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="5" class="muted" style="text-align:center;padding:28px">Hali guruh yo'q. Botni guruhga qo'shib, «Guruhlarni aniqlash» ni bosing.</td></tr>{% endfor %}
+    </tbody></table></div>
+  {% if rx.sozlamalar_tahrirlash and token_bor %}
+  <form method="post" class="flex" style="gap:8px;margin-top:14px;align-items:stretch">{% csrf_token %}<input type="hidden" name="amal" value="qosh">
+    <input type="text" name="chat_id" placeholder="Chat ID ni qo'lda qo'shish (masalan -1001234567890)" style="flex:1;min-width:240px">
+    <button class="btn sec" type="submit">Qo'shish</button>
+  </form>{% endif %}
+</div>
+
+<div class="card mt">
+  <h3>3. Oxirgi yuborishlar</h3>
+  <div class="tw"><table class="jadval">
+    <thead><tr><th>Vaqt</th><th>Nima yuborildi</th><th>Holat</th><th>Xabarlar</th><th>Kim</th><th>Izoh</th></tr></thead>
+    <tbody>
+    {% for i in ishlar %}<tr>
+      <td>{{ i.vaqt|sana_vaqt }}</td><td class="wrap">{{ i.sarlavha }}</td>
+      <td><span class="chip {% if i.holat == 'tayyor' %}g{% elif i.holat == 'xato' %}r{% else %}y{% endif %}">{{ i.get_holat_display }}</span></td>
+      <td class="son">{{ i.yuborildi }} / {{ i.jami }}{% if i.xato_soni %} <span class="muted">({{ i.xato_soni }} xato)</span>{% endif %}</td>
+      <td>{% if i.yaratgan %}{{ i.yaratgan.first_name|default:i.yaratgan.username }}{% else %}-{% endif %}</td>
+      <td class="wrap" style="font-size:12px;white-space:pre-line">{{ i.xabar|truncatechars:300 }}</td>
+    </tr>{% empty %}<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Hali yuborilmagan.</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+{% endblock %}

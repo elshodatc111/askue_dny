@@ -1,0 +1,129 @@
+{# Telegram guruhlarini tanlash oynasi va yuborish skripti. .tg-btn tugmalari bilan ishlaydi. #}
+<style>
+.tg-qator { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px; margin-bottom: 14px; }
+.tg-yorliq { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); margin-right: 4px; }
+.tg-yorliq .ic { width: 16px; height: 16px; }
+.tg-btn .tg-spin { display: none; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: tgspin .8s linear infinite; }
+.tg-btn.loading { pointer-events: none; opacity: .85; }
+.tg-btn.loading .ic { display: none; } .tg-btn.loading .tg-spin { display: inline-block; }
+@keyframes tgspin { to { transform: rotate(360deg); } }
+.tg-box { max-width: 460px !important; text-align: left !important; }
+.tg-box h3 { margin: 0 0 4px; font-size: 18px; } .tg-box .tg-sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+.tg-list { max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 16px; }
+.tg-list label { display: flex; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+.tg-list label:hover { background: var(--info-bg); } .tg-list label.all { border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; font-weight: 600; }
+.tg-list input { width: 16px; height: 16px; flex: none; } .tg-list small { color: var(--muted); margin-left: auto; }
+.tg-bosh { padding: 18px 10px; text-align: center; color: var(--muted); font-size: 13.5px; }
+.tg-box .modal-act .btn[disabled] { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+</style>
+<div class="modal" id="tg-modal" role="dialog" aria-modal="true" aria-labelledby="tg-t" hidden data-guruhlar="{% url 'tg_guruhlar' %}" data-yuborish="{% url 'tg_yuborish' %}" data-holat="{% url 'tg_holat' 0 %}" data-sozlamalar="{% if rx.sozlamalar_korish %}{% url 'sozlamalar' %}{% endif %}">
+  <div class="modal-box tg-box">
+    {% csrf_token %}
+    <h3 id="tg-t">Telegramga yuborish</h3>
+    <p class="tg-sub" id="tg-sub"></p>
+    <div class="tg-list" id="tg-list"></div>
+    <div class="modal-act">
+      <button type="button" class="btn sec" id="tg-bekor">Bekor qilish</button>
+      <button type="button" class="btn" id="tg-yubor" disabled><svg class="ic"><use href="#i-send"/></svg> Yuborish</button>
+    </div>
+  </div>
+</div>
+<script>
+{% verbatim %}
+(function () {
+  var modal = document.getElementById('tg-modal'); if (!modal) return;
+  var list = document.getElementById('tg-list'), subEl = document.getElementById('tg-sub'), yubor = document.getElementById('tg-yubor');
+  var csrf = modal.querySelector('input[name=csrfmiddlewaretoken]').value;
+  var joriy = null, ISHLAR = {};
+  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function toast(t, tur) {
+    var c = document.querySelector('.toasts');
+    if (!c) { c = document.createElement('div'); c.className = 'toasts'; document.body.appendChild(c); }
+    var e = document.createElement('div'); e.className = 'toast ' + (tur || ''); e.textContent = t; c.appendChild(e);
+    setTimeout(function () { e.style.transition = 'opacity .5s'; e.style.opacity = 0; setTimeout(function () { e.remove(); }, 600); }, 9000);
+  }
+  function kalit(b) { return 'tg_' + b.dataset.manba + '_' + b.dataset.tur; }
+  function tanlanganlar() { return Array.prototype.map.call(list.querySelectorAll('input[name=guruh]:checked'), function (i) { return i.value; }); }
+  function yangilaTugma() { yubor.disabled = tanlanganlar().length === 0; }
+  function yop() { modal.hidden = true; joriy = null; }
+
+  function ochish(btn) {
+    joriy = btn; modal.hidden = false; yubor.disabled = true;
+    subEl.textContent = btn.dataset.nom || '';
+    list.innerHTML = '<div class="tg-bosh">Yuklanmoqda...</div>';
+    fetch(modal.dataset.guruhlar, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+      var sozl = modal.dataset.sozlamalar ? ' <a href="' + modal.dataset.sozlamalar + '">Sozlamalar</a> bo\'limiga o\'ting.' : ' Administratorga murojaat qiling.';
+      if (!d.token_bor) { list.innerHTML = '<div class="tg-bosh">Telegram bot ulanmagan.' + sozl + '</div>'; return; }
+      if (!d.guruhlar.length) { list.innerHTML = '<div class="tg-bosh">Hali guruh qo\'shilmagan.' + sozl + '</div>'; return; }
+      var eski = []; try { eski = JSON.parse(localStorage.getItem('tg_guruhlar') || '[]'); } catch (e) {}
+      var h = '<label class="all"><input type="checkbox" id="tg-hamma"> Hammasini tanlash</label>';
+      d.guruhlar.forEach(function (g) {
+        h += '<label><input type="checkbox" name="guruh" value="' + g.id + '"' + (eski.indexOf(g.id) >= 0 ? ' checked' : '') + '> <span>' + esc(g.nom) + '</span></label>';
+      });
+      list.innerHTML = h; yangilaTugma();
+    }).catch(function () { list.innerHTML = '<div class="tg-bosh">Guruhlar ro\'yxatini olib bo\'lmadi.</div>'; });
+  }
+
+  list.addEventListener('change', function (e) {
+    if (e.target.id === 'tg-hamma') { list.querySelectorAll('input[name=guruh]').forEach(function (i) { i.checked = e.target.checked; }); }
+    yangilaTugma();
+  });
+  document.getElementById('tg-bekor').addEventListener('click', yop);
+  modal.addEventListener('click', function (e) { if (e.target === modal) yop(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) yop(); });
+
+  function yuklanish(btn, on, matn) {
+    var l = btn.querySelector('.tg-lbl');
+    if (!btn.dataset.asl && l) btn.dataset.asl = l.textContent;
+    btn.classList.toggle('loading', on); btn.disabled = on;
+    if (l) l.textContent = on ? (matn || 'Yuborilmoqda...') : (btn.dataset.asl || l.textContent);
+  }
+
+  function kuzat(btn, id) {
+    ISHLAR[kalit(btn)] = id;
+    try { sessionStorage.setItem(kalit(btn), id); } catch (e) {}
+    yuklanish(btn, true, 'Yuborilmoqda...');
+    var url = modal.dataset.holat.replace(/0\/$/, id + '/');
+    var xatolar = 0;
+    (function sora() {
+      fetch(url, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('holat'); return r.json(); }).then(function (d) {
+        if (d.holat === 'jarayonda') {
+          yuklanish(btn, true, d.jami ? ('Yuborilmoqda ' + d.yuborildi + '/' + d.jami) : 'Tayyorlanmoqda...');
+          setTimeout(sora, 2000); return;
+        }
+        yuklanish(btn, false); try { sessionStorage.removeItem(kalit(btn)); } catch (e) {}
+        if (d.holat === 'tayyor') toast('Telegramga yuborildi: ' + d.sarlavha + ' (' + d.yuborildi + ' ta xabar).', 'success');
+        else if (d.holat === 'qisman') toast('Qisman yuborildi (' + d.yuborildi + '/' + d.jami + '). Xato: ' + d.xabar.split('\n')[0], 'warning');
+        else toast('Yuborib bo\'lmadi: ' + (d.xabar || 'noma\'lum xato').split('\n')[0], 'error');
+      }).catch(function () {
+        if (++xatolar < 5) { setTimeout(sora, 4000); return; }
+        yuklanish(btn, false); try { sessionStorage.removeItem(kalit(btn)); } catch (e) {}
+      });
+    })();
+  }
+
+  yubor.addEventListener('click', function () {
+    var idlar = tanlanganlar(); if (!idlar.length || !joriy) return;
+    var btn = joriy, fd = new FormData();
+    fd.append('manba', btn.dataset.manba); fd.append('tur', btn.dataset.tur);
+    fd.append('b', btn.dataset.b || ''); fd.append('a', btn.dataset.a || ''); fd.append('tuman', btn.dataset.tuman || '');
+    idlar.forEach(function (i) { fd.append('guruh', i); });
+    try { localStorage.setItem('tg_guruhlar', JSON.stringify(idlar.map(Number))); } catch (e) {}
+    yubor.disabled = true;
+    fetch(modal.dataset.yuborish, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRFToken': csrf } })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (x) {
+        if (!x.ok) { toast(x.d.xato || 'Xatolik yuz berdi.', 'error'); yubor.disabled = false; return; }
+        yop(); toast('Yuborish boshlandi (' + x.d.guruhlar + ' ta guruh). Fonda ishlamoqda...', '');
+        kuzat(btn, x.d.id);
+      }).catch(function () { toast('Serverga ulanib bo\'lmadi.', 'error'); yubor.disabled = false; });
+  });
+
+  document.querySelectorAll('.tg-btn').forEach(function (b) {
+    b.addEventListener('click', function () { ochish(b); });
+    var id = null; try { id = sessionStorage.getItem(kalit(b)); } catch (e) {}
+    if (id) kuzat(b, id);  // sahifa yangilangan bo'lsa ham jarayon kuzatuvi davom etadi
+  });
+})();
+{% endverbatim %}
+</script>

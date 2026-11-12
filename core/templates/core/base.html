@@ -32,6 +32,8 @@
   <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 4H5v16h4"/><path d="M16 8l4 4-4 4"/><path d="M20 12H9"/></symbol>
   <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.8 2.7 4.2 5.7 4.2 9s-1.4 6.3-4.2 9c-2.8-2.7-4.2-5.7-4.2-9S9.2 5.7 12 3z"/></symbol>
   <symbol id="i-files" viewBox="0 0 24 24"><path d="M8 3h8l4 4v12H8z"/><path d="M15 3v5h5"/><path d="M4 7v14h12"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L3 10.5l7 2.5 2.5 7z"/><path d="M10 13l11-10"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></symbol>
 </svg>
 <div class="scrim" id="scrim"></div>
@@ -56,6 +58,7 @@
       {% if rx.brigadalar_korish %}<a href="{% url 'brigadalar' %}" class="{% if p == 'brigadalar' or p == 'brigada_tahrir' %}on{% endif %}"><svg class="ic"><use href="#i-team"/></svg> Brigadalar</a>{% endif %}
       {% if rx.tp_kochirish_korish %}<a href="{% url 'tp_kochirish' %}" class="{% if p == 'tp_kochirish' %}on{% endif %}"><svg class="ic"><use href="#i-move"/></svg> TP larni ko'chirish</a>{% endif %}
       {% if rx.foydalanuvchilar_korish %}<a href="{% url 'foydalanuvchilar' %}" class="{% if p == 'foydalanuvchilar' or p == 'foydalanuvchi_tahrir' or p == 'foydalanuvchi_yangi' %}on{% endif %}"><svg class="ic"><use href="#i-users"/></svg> Foydalanuvchilar</a>{% endif %}
+      {% if rx.sozlamalar_korish %}<a href="{% url 'sozlamalar' %}" class="{% if p == 'sozlamalar' %}on{% endif %}"><svg class="ic"><use href="#i-gear"/></svg> Sozlamalar</a>{% endif %}
       {% endif %}
       {% endwith %}
     </nav>
@@ -71,7 +74,7 @@
   <div class="main">
     <header class="top">
       <button class="icon-btn" id="menu-btn" aria-label="Menyu"><svg class="ic"><use href="#i-menu"/></svg></button>
-      <span class="sect-ic" aria-hidden="true"><svg class="ic">{% with p=request.resolver_match.url_name %}<use href="#{% if p == 'bosh' %}i-home{% elif p == 'dinamika' %}i-chart{% elif p == 'royxat' %}i-list{% elif p == 'xarita' %}i-map{% elif p == 'kpi' %}i-target{% elif p == 'yuklash' or p == 'resp_yuklash' %}i-upload{% elif p == 'resp_dinamika' %}i-globe{% elif p == 'resp_fayllar' %}i-files{% elif p == 'brigadalar' or p == 'brigada_tahrir' %}i-team{% elif p == 'tp_kochirish' %}i-move{% elif p == 'foydalanuvchilar' or p == 'foydalanuvchi_tahrir' or p == 'foydalanuvchi_yangi' %}i-users{% else %}i-bolt{% endif %}"/>{% endwith %}</svg></span>
+      <span class="sect-ic" aria-hidden="true"><svg class="ic">{% with p=request.resolver_match.url_name %}<use href="#{% if p == 'bosh' %}i-home{% elif p == 'dinamika' %}i-chart{% elif p == 'royxat' %}i-list{% elif p == 'xarita' %}i-map{% elif p == 'kpi' %}i-target{% elif p == 'yuklash' or p == 'resp_yuklash' %}i-upload{% elif p == 'resp_dinamika' %}i-globe{% elif p == 'sozlamalar' %}i-gear{% elif p == 'resp_fayllar' %}i-files{% elif p == 'brigadalar' or p == 'brigada_tahrir' %}i-team{% elif p == 'tp_kochirish' %}i-move{% elif p == 'foydalanuvchilar' or p == 'foydalanuvchi_tahrir' or p == 'foydalanuvchi_yangi' %}i-users{% else %}i-bolt{% endif %}"/>{% endwith %}</svg></span>
       <h1>{% block h1 %}{% endblock %}<small>{% block h1sub %}{% endblock %}</small></h1>
       {% block topact %}{% endblock %}
       <button class="icon-btn" id="theme-btn" title="Yorug' / qorong'i"><svg class="ic"><use href="#i-moon"/></svg></button>

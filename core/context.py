@@ -13,5 +13,5 @@ def umumiy(request):
         "rol_nomi": rol_nomi(u),
         "butun_viloyat": ids is None,
         "rx": rx,
-        "boshqaruv_bor": any(k in r for k in ("yuklash.korish", "resp_yuklash.korish", "brigadalar.korish", "tp_kochirish.korish", "foydalanuvchilar.korish")),
+        "boshqaruv_bor": any(k in r for k in ("yuklash.korish", "resp_yuklash.korish", "brigadalar.korish", "tp_kochirish.korish", "foydalanuvchilar.korish", "sozlamalar.korish")),
     }

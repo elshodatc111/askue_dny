@@ -17,8 +17,8 @@ from .models import Profil
 # (kod, nomi, [(amal, nomi)], faqat_admin)
 BOLIMLAR = [
     ("bosh", "Bosh panel", [("korish", "Ko'rish")], False),
-    ("dinamika", "Dinamika jadvallari", [("korish", "Ko'rish"), ("eksport", "Excel / PDF yuklab olish")], False),
-    ("resp_dinamika", "Respublika dinamikasi", [("korish", "Ko'rish"), ("eksport", "Excel / PDF yuklab olish"), ("kunlar", "Kunlarni belgilash (ish / dam olish)")], False),
+    ("dinamika", "Dinamika jadvallari", [("korish", "Ko'rish"), ("eksport", "Excel / PDF yuklab olish"), ("telegram", "Telegram guruhlarga yuborish")], False),
+    ("resp_dinamika", "Respublika dinamikasi", [("korish", "Ko'rish"), ("eksport", "Excel / PDF yuklab olish"), ("telegram", "Telegram guruhlarga yuborish"), ("kunlar", "Kunlarni belgilash (ish / dam olish)")], False),
     ("royxat", "Nomma-nom ro'yxat", [("korish", "Ko'rish"), ("eksport", "Excelga yuklab olish")], False),
     ("xarita", "Xarita", [("korish", "Ko'rish")], False),
     ("yuklash", "Fayl yuklash", [("korish", "Yuklamalar ro'yxatini ko'rish"), ("yuklash", "Fayl yuklash"), ("ochirish", "Yuklamani o'chirish")], False),
@@ -27,6 +27,7 @@ BOLIMLAR = [
     ("brigadalar", "Brigadalar", [("korish", "Ko'rish"), ("yaratish", "Yangi brigada qo'shish"), ("tahrirlash", "Tahrirlash"), ("ochirish", "O'chirish")], False),
     ("tp_kochirish", "TP larni ko'chirish", [("korish", "Ko'rish"), ("kochirish", "TP larni ko'chirish")], False),
     ("foydalanuvchilar", "Foydalanuvchilar", [("korish", "Ko'rish"), ("yaratish", "Yangi foydalanuvchi"), ("tahrirlash", "Tahrirlash (rol va ruxsatlar)")], True),
+    ("sozlamalar", "Sozlamalar (Telegram bot)", [("korish", "Ko'rish"), ("tahrirlash", "Bot tokeni va guruhlarni sozlash")], True),
 ]
 
 BARCHA = [f"{b}.{a}" for b, _n, amallar, _fa in BOLIMLAR for a, _an in amallar]
@@ -42,7 +43,7 @@ ROL_STANDART = {
 
 # bosh sahifaga ruxsat bo'lmasa, o'tkaziladigan sahifalar (url nomi)
 SAHIFALAR = [("bosh", "bosh"), ("dinamika", "dinamika"), ("resp_dinamika", "resp_dinamika"), ("royxat", "royxat"), ("xarita", "xarita"),
-             ("yuklash", "yuklash"), ("resp_yuklash", "resp_yuklash"), ("brigadalar", "brigadalar"), ("tp_kochirish", "tp_kochirish"), ("foydalanuvchilar", "foydalanuvchilar")]
+             ("yuklash", "yuklash"), ("resp_yuklash", "resp_yuklash"), ("brigadalar", "brigadalar"), ("tp_kochirish", "tp_kochirish"), ("foydalanuvchilar", "foydalanuvchilar"), ("sozlamalar", "sozlamalar")]
 
 
 def profil(user):

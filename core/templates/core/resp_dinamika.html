@@ -6,7 +6,8 @@
 {% block topact %}{% if jadval and rx.resp_dinamika_eksport %}<div class="flex" style="gap:8px;flex-wrap:wrap;justify-content:flex-end">
   <a class="btn sec sm" href="?{{ bq }}&format=xlsx" title="7 ta varaq, har bir jadval alohida"><svg class="ic"><use href="#i-down"/></svg> Excel</a>
   <a class="btn sec sm" href="?{{ bq }}&format=pdf" title="7 betli PDF, asl hisobot ko'rinishida"><svg class="ic"><use href="#i-pdf"/></svg> PDF</a>
-</div>{% endif %}{% endblock %}
+</div>{% endif %}
+{% endblock %}
 {% block content %}
 {% if not b %}
   <div class="card" style="text-align:center;padding:50px">
@@ -40,6 +41,11 @@
 
 {% if a_izoh %}<div class="err" style="background:var(--warn-bg);color:#b45309">{{ a_izoh }}</div>{% endif %}
 {% if ogoh %}<details class="err" style="background:var(--warn-bg);color:#b45309"><summary>Bu kun PDF sini o'qishda {{ ogoh|length }} ta ogohlantirish bor (raqamlar PDF bilan solishtirilsin)</summary>{% for o in ogoh %}<div style="font-size:12px">{{ o }}</div>{% endfor %}</details>{% endif %}
+
+{% if b and rx.resp_dinamika_telegram %}<div class="card tg-qator"><span class="tg-yorliq"><svg class="ic"><use href="#i-send"/></svg> Telegram guruhlarga yuborish:</span>
+  <button type="button" class="btn sec sm tg-btn" data-manba="resp" data-tur="xlsx" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-nom="Respublika dinamikasi · Excel · {{ b|kun }}" title="Excel faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Excel</span></button>
+  <button type="button" class="btn sec sm tg-btn" data-manba="resp" data-tur="pdf" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-nom="Respublika dinamikasi · PDF · {{ b|kun }}" title="PDF faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Dinamika (PDF)</span></button>
+</div>{% endif %}
 
 <div class="legend-row">
   <span><b class="rt-up">▲</b> qizil: ko'paygan</span><span><b class="rt-dn">▼</b> ko'k: kamaygan</span>
@@ -85,4 +91,5 @@
 </details>
 {% endif %}
 {% endif %}
+{% if rx.resp_dinamika_telegram %}{% include "core/_tg_modal.html" %}{% endif %}
 {% endblock %}

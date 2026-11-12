@@ -211,3 +211,64 @@ class RespKun(models.Model):
 
     def __str__(self):
         return f"{self.sana:%d.%m.%Y} - {'ish kuni' if self.ish else 'dam olish kuni'}"
+
+
+class TelegramSozlama(models.Model):
+    """Telegram bot sozlamasi (bitta yozuv): bot tokeni."""
+
+    bot_token = models.CharField("Bot tokeni", max_length=200, blank=True)
+    bot_nomi = models.CharField("Bot nomi (@username)", max_length=120, blank=True)
+
+    class Meta:
+        verbose_name = "Telegram sozlamasi"
+        verbose_name_plural = "Telegram sozlamasi"
+
+    def __str__(self):
+        return f"Telegram bot {self.bot_nomi}".strip()
+
+    @classmethod
+    def olish(cls):
+        obj = cls.objects.order_by("id").first()
+        return obj or cls.objects.create()
+
+
+class TelegramGuruh(models.Model):
+    """Bot admin qilib biriktirilgan guruh (yoki kanal)."""
+
+    nom = models.CharField("Guruh nomi", max_length=200)
+    chat_id = models.CharField("Chat ID", max_length=40, unique=True)
+    tur = models.CharField("Turi", max_length=20, blank=True)
+    faol = models.BooleanField("Yuborish yoqilgan", default=True)
+    qoshilgan = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["nom", "id"]
+        verbose_name = "Telegram guruhi"
+        verbose_name_plural = "Telegram guruhlari"
+
+    def __str__(self):
+        return self.nom
+
+
+class TelegramIsh(models.Model):
+    """Telegramga yuborish jarayoni (orqa fonda bajariladi)."""
+
+    HOLATLAR = [("jarayonda", "Yuborilmoqda"), ("tayyor", "Yuborildi"), ("qisman", "Qisman yuborildi"), ("xato", "Xato")]
+
+    sarlavha = models.CharField(max_length=200)
+    holat = models.CharField(max_length=12, choices=HOLATLAR, default="jarayonda")
+    jami = models.PositiveIntegerField("Jami xabarlar", default=0)
+    yuborildi = models.PositiveIntegerField("Yuborildi", default=0)
+    xato_soni = models.PositiveIntegerField("Xatolar", default=0)
+    xabar = models.TextField(blank=True)
+    yaratgan = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    vaqt = models.DateTimeField(auto_now_add=True)
+    tugadi = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-vaqt"]
+        verbose_name = "Telegram yuborish"
+        verbose_name_plural = "Telegram yuborishlar"
+
+    def __str__(self):
+        return self.sarlavha

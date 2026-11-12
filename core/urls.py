@@ -1,7 +1,7 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path, reverse_lazy
 
-from . import views, views_resp
+from . import views, views_resp, views_tg
 
 urlpatterns = [
     path("kirish/", auth_views.LoginView.as_view(template_name="core/kirish.html", redirect_authenticated_user=True), name="kirish"),
@@ -25,6 +25,10 @@ urlpatterns = [
     path("brigadalar/<int:pk>/", views.brigada_tahrir, name="brigada_tahrir"),
     path("brigadalar/<int:pk>/ochirish/", views.brigada_ochirish, name="brigada_ochirish"),
     path("tp-kochirish/", views.tp_kochirish, name="tp_kochirish"),
+    path("sozlamalar/", views_tg.sozlamalar, name="sozlamalar"),
+    path("telegram/guruhlar/", views_tg.guruhlar, name="tg_guruhlar"),
+    path("telegram/yuborish/", views_tg.yuborish, name="tg_yuborish"),
+    path("telegram/holat/<int:pk>/", views_tg.holat, name="tg_holat"),
     path("foydalanuvchilar/", views.foydalanuvchilar, name="foydalanuvchilar"),
     path("foydalanuvchilar/yangi/", views.foydalanuvchi_tahrir, name="foydalanuvchi_yangi"),
     path("foydalanuvchilar/<int:pk>/", views.foydalanuvchi_tahrir, name="foydalanuvchi_tahrir"),

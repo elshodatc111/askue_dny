@@ -15,6 +15,7 @@ body[data-sect="brigadalar"], body[data-sect="brigada_tahrir"] { --sect: #e11d48
 body[data-sect="tp_kochirish"] { --sect: #f97316; }
 body[data-sect="foydalanuvchilar"], body[data-sect="foydalanuvchi_tahrir"], body[data-sect="foydalanuvchi_yangi"] { --sect: #6366f1; }
 body[data-sect="parol"] { --sect: #64748b; }
+body[data-sect="sozlamalar"] { --sect: #0284c7; }
 
 body { background: var(--bg); }
 a { color: var(--sect); }

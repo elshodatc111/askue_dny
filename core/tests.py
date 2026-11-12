@@ -389,3 +389,156 @@ class RespViewTest(TestCase):
         self.assertEqual(c.post(reverse("resp_kun"), {"sana": "2026-11-09", "holat": "ish"}).status_code, 403)
         self.assertEqual(c.get(reverse("resp_dinamika"), {"format": "pdf"}).status_code, 403)
         self.assertTrue(all(k in BARCHA for k in ("resp_dinamika.kunlar", "resp_yuklash.yuklash", "resp_fayllar.yuklab", "resp_fayllar.ochirish")))
+
+
+# ---------------------------------------------------------------- Telegram
+from unittest import mock  # noqa: E402
+
+from .models import TelegramGuruh, TelegramIsh, TelegramSozlama  # noqa: E402
+from .services import telegram as T  # noqa: E402
+from .services import tg_yuborish as TY  # noqa: E402
+
+
+class TelegramTest(TestCase):
+    def setUp(self):
+        self.t1 = Tuman.objects.create(nom="Koson TETK", qisqa="Koson t.", tartib=1)
+        self.t2 = Tuman.objects.create(nom="Qarshi TETK", qisqa="Qarshi t.", tartib=2)
+        Yuklama.objects.create(tur="dcu", sana=datetime.date(2026, 11, 12), holat="tayyor")
+        Yuklama.objects.create(tur="dcu", sana=datetime.date(2026, 11, 9), holat="tayyor")
+        User.objects.create_superuser("admin", password="Admin@12345")
+        self.client.login(username="admin", password="Admin@12345")
+        sz = TelegramSozlama.olish()
+        sz.bot_token = "123:ABC"
+        sz.save()
+        self.g1 = TelegramGuruh.objects.create(nom="Guruh 1", chat_id="-1001")
+        self.g2 = TelegramGuruh.objects.create(nom="Guruh 2", chat_id="-1002")
+        self.qongiroqlar = []
+        self.xato_chat = None
+        self.yangilanishlar = []
+
+        def soxta(token, metod, maydonlar=None, fayl=None, timeout=60):
+            self.qongiroqlar.append((metod, maydonlar, fayl))
+            if metod == "getMe":
+                return {"username": "hodim_bot"}
+            if metod == "getUpdates":
+                u, self.yangilanishlar = self.yangilanishlar, []
+                return u
+            if metod == "getChat":
+                return {"id": int(maydonlar["chat_id"]), "title": "Qo'lda guruh", "type": "supergroup"}
+            if metod == "sendDocument" and maydonlar["chat_id"] == self.xato_chat:
+                raise T.TgXato("Forbidden: bot was kicked", 403)
+            return {"message_id": 1}
+
+        for p in (mock.patch.object(T, "_chaqir", soxta), mock.patch.object(TY, "ORALIQ", 0), mock.patch.object(TY, "connection"),
+                  mock.patch.object(TY, "fonda_boshlash", lambda ish_id, idlar, fn: TY._bajar(ish_id, idlar, fn))):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def _yubor(self, **kw):
+        d = {"manba": "dinamika", "tur": "xlsx", "b": "2026-11-12", "a": "2026-11-09", "guruh": [self.g1.id, self.g2.id]}
+        d.update(kw)
+        return self.client.post(reverse("tg_yuborish"), d)
+
+    def _hujjatlar(self):
+        return [(m, f) for metod, m, f in self.qongiroqlar if metod == "sendDocument"]
+
+    def test_sozlamalar_va_token(self):
+        r = self.client.get(reverse("sozlamalar"))
+        self.assertContains(r, "Guruh 1")
+        self.assertNotContains(r, "123:ABC")
+        self.client.post(reverse("sozlamalar"), {"amal": "token", "token": "999:XYZ"})
+        sz = TelegramSozlama.olish()
+        self.assertEqual((sz.bot_token, sz.bot_nomi), ("999:XYZ", "@hodim_bot"))
+
+    def test_guruhlarni_aniqlash(self):
+        self.yangilanishlar = [
+            {"update_id": 5, "my_chat_member": {"chat": {"id": -1003, "title": "Yangi guruh", "type": "supergroup"}, "new_chat_member": {"status": "administrator"}}},
+            {"update_id": 6, "my_chat_member": {"chat": {"id": -1002, "title": "Guruh 2", "type": "group"}, "new_chat_member": {"status": "kicked"}}},
+            {"update_id": 7, "message": {"chat": {"id": 55, "type": "private"}}},
+        ]
+        self.client.post(reverse("sozlamalar"), {"amal": "aniqlash"})
+        self.assertEqual(TelegramGuruh.objects.get(chat_id="-1003").nom, "Yangi guruh")
+        self.assertFalse(TelegramGuruh.objects.get(chat_id="-1002").faol)
+        self.assertFalse(TelegramGuruh.objects.filter(chat_id="55").exists())
+        self.client.post(reverse("sozlamalar"), {"amal": "qosh", "chat_id": "-1009"})
+        self.assertTrue(TelegramGuruh.objects.filter(chat_id="-1009", nom="Qo'lda guruh").exists())
+
+    def test_excel_va_pdf_yuborish(self):
+        r = self._yubor()
+        self.assertEqual(r.status_code, 200)
+        ish = TelegramIsh.objects.get()
+        self.assertEqual((ish.holat, ish.jami, ish.yuborildi), ("tayyor", 2, 2))
+        h = self._hujjatlar()
+        self.assertEqual([m["chat_id"] for m, _f in h], ["-1001", "-1002"])
+        self.assertTrue(h[0][1][1].endswith(".xlsx") and h[0][1][2][:2] == b"PK")
+        self.assertIn("12.11.2026", h[0][0]["caption"])
+        self.assertIn("09.11.2026", h[0][0]["caption"])
+        self.qongiroqlar.clear()
+        self._yubor(tur="pdf", guruh=[self.g1.id])
+        h = self._hujjatlar()
+        self.assertEqual(len(h), 1)
+        self.assertTrue(h[0][1][2].startswith(b"%PDF"))
+
+    def test_tumanlar_alohida_pdf(self):
+        self._yubor(tur="tumanlar")
+        ish = TelegramIsh.objects.get()
+        self.assertEqual((ish.holat, ish.jami, ish.yuborildi), ("tayyor", 4, 4))
+        h = self._hujjatlar()
+        nomlar = [f[1] for _m, f in h]
+        self.assertTrue(all(n.endswith(".pdf") and "2026" in n for n in nomlar))
+        self.assertEqual(sum("Koson" in n for n in nomlar), 2)
+        self.assertEqual(sum("Qarshi" in n for n in nomlar), 2)
+        for m, f in h:
+            tuman = "Koson t." if "Koson" in f[1] else "Qarshi t."
+            self.assertIn(tuman, m["caption"])
+            self.assertIn("09.11.2026", m["caption"])
+            self.assertTrue(f[2].startswith(b"%PDF"))
+
+    def test_qisman_xato(self):
+        self.xato_chat = "-1002"
+        self._yubor()
+        ish = TelegramIsh.objects.get()
+        self.assertEqual((ish.holat, ish.yuborildi, ish.xato_soni), ("qisman", 1, 1))
+        self.assertIn("Guruh 2", ish.xabar)
+        r = self.client.get(reverse("tg_holat", args=[ish.id]))
+        self.assertEqual(r.json()["holat"], "qisman")
+
+    def test_respublika_yuborish(self):
+        for yol, sana in ((PDF9, datetime.date(2026, 11, 9)), (PDF12, datetime.date(2026, 11, 12))):
+            res = R.oqi(yol, "x.pdf")
+            RespYuklama.objects.create(sana=sana, fayl_nomi="x.pdf", yol="x", hajm=1, faol=True, holat="tayyor", malumot=R.malumot_json(res["malumot"]))
+        for tur, bosh in (("xlsx", b"PK"), ("pdf", b"%PDF")):
+            self.qongiroqlar.clear()
+            r = self._yubor(manba="resp", tur=tur, guruh=[self.g1.id])
+            self.assertEqual(r.status_code, 200, r.content)
+            h = self._hujjatlar()
+            self.assertEqual(len(h), 1)
+            self.assertTrue(h[0][1][2].startswith(bosh))
+            self.assertIn("Respublika dinamikasi", h[0][0]["caption"])
+            self.assertIn("09.11.2026", h[0][0]["caption"])
+        self.assertEqual(TelegramIsh.objects.filter(holat="tayyor").count(), 2)
+        self.assertEqual(self._yubor(manba="resp", b="2026-11-20").status_code, 200)
+        self.assertEqual(TelegramIsh.objects.filter(holat="xato").count(), 1)  # sana uchun hisobot yo'q
+
+    def test_ruxsat_va_tekshiruvlar(self):
+        self.assertEqual(self._yubor(guruh=[]).status_code, 400)
+        self.assertEqual(self._yubor(tur="zip").status_code, 400)
+        self.assertEqual(self._yubor(b="2020-01-01").status_code, 400)
+        u = User.objects.create_user("hodim", password="Hodim@12345")
+        c = self.client_class()
+        c.login(username="hodim", password="Hodim@12345")
+        self.assertEqual(c.post(reverse("tg_yuborish"), {"manba": "dinamika", "tur": "xlsx", "b": "2026-11-12", "guruh": [self.g1.id]}).status_code, 403)
+        self.assertEqual(c.get(reverse("tg_guruhlar")).status_code, 403)
+        self.assertEqual(c.get(reverse("sozlamalar")).status_code, 403)
+        u.profil.ruxsatlar = {"dinamika.telegram": True}
+        u.profil.save()
+        self.assertEqual(c.get(reverse("tg_guruhlar")).status_code, 200)
+        self.assertEqual(c.get(reverse("sozlamalar")).status_code, 403)  # sozlamalar faqat administrator uchun
+        self.assertEqual(c.post(reverse("tg_yuborish"), {"manba": "resp", "tur": "xlsx", "b": "2026-11-12", "guruh": [self.g1.id]}).status_code, 403)
+
+    def test_tugmalar_sahifada(self):
+        r = self.client.get(reverse("dinamika"), {"b": "2026-11-12", "a": "2026-11-09"})
+        self.assertContains(r, 'data-tur="xlsx"')
+        self.assertContains(r, 'data-tur="tumanlar"')
+        r = self.client.get(reverse("dinamika"), {"b": "2026-11-12", "a": "2026-11-09", "tuman": self.t1.id})
+        self.assertNotContains(r, 'data-tur="tumanlar"')

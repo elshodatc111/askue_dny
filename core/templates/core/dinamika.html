@@ -30,6 +30,12 @@
     {% for p in presetlar %}<a href="?sahifa={{ sahifa }}&b={{ b|date:'Y-m-d' }}&a={{ p.iso }}{% if tuman_id and butun_viloyat %}&tuman={{ tuman_id }}{% endif %}" title="{{ p.txt }}">{{ p.nom }}</a>{% endfor %}</div>{% endif %}
 </form>
 
+{% if jadval and rx.dinamika_telegram %}<div class="card tg-qator"><span class="tg-yorliq"><svg class="ic"><use href="#i-send"/></svg> Telegram guruhlarga yuborish:</span>
+    <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="xlsx" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Dinamika jadvali · Excel{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="Excel faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Excel</span></button>
+  <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="pdf" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Dinamika jadvali · PDF{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="PDF faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · PDF</span></button>
+  {% if not tuman and tumanlar|length > 1 %}<button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="tumanlar" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="" data-nom="Tumanlar kesimida (brigadalar) · har bir tuman alohida PDF · {{ b|kun }}" title="Har bir tuman uchun brigadalar kesimidagi dinamikani alohida PDF qilib Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Tumanlar (PDF)</span></button>{% endif %}
+</div>{% endif %}
+
 {% if tuman %}
 <div class="crumb">
   {% if butun_viloyat %}<a href="?sahifa={{ sahifa }}&b={{ b|date:'Y-m-d' }}&a={{ a|date:'Y-m-d' }}">Qashqadaryo HETK</a> <span>›</span>{% endif %}
@@ -48,4 +54,5 @@
   </div>
   {% include "core/_dinamika_jadval.html" %}
 {% endif %}
+{% if rx.dinamika_telegram %}{% include "core/_tg_modal.html" %}{% endif %}
 {% endblock %}
