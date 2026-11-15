@@ -1,0 +1,55 @@
+diff --git a/core/static/core/css/app.css b/core/static/core/css/app.css
+index 11dd416..cef6de4 100644
+--- a/core/static/core/css/app.css
++++ b/core/static/core/css/app.css
+@@ -29,15 +29,23 @@ a:hover { text-decoration: underline; }
+ .nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin: 2px 0; border-radius: 10px; color: var(--side-text); text-decoration: none; transition: background .2s, color .2s, transform .2s; }
+ .nav a:hover { background: rgba(255,255,255,.07); color: #fff; transform: translateX(2px); }
+ .nav a.on { background: linear-gradient(90deg, rgba(79,70,229,.9), rgba(124,58,237,.75)); color: #fff; box-shadow: 0 6px 16px rgba(79,70,229,.35); }
+-.brig-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 18px; align-items: start; }
+-.brig-panel { position: sticky; top: 84px; max-height: calc(100vh - 110px); overflow-y: auto; padding: 10px; }
+-.brig-panel h4 { margin: 4px 8px 8px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+-.brig-panel a { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; margin: 2px 0; border-radius: 10px; color: var(--text); font-weight: 600; font-size: 13px; text-decoration: none; transition: background .2s, transform .2s; }
+-.brig-panel a:hover { background: var(--info-bg); transform: translateX(2px); text-decoration: none; }
+-.brig-panel a .n { font-size: 11px; font-weight: 600; background: var(--line); color: var(--muted); border-radius: 99px; padding: 1px 8px; }
+-.brig-panel a.on { background: var(--brand); color: #fff; box-shadow: 0 6px 16px rgba(79,70,229,.3); }
+-.brig-panel a.on .n { background: rgba(255,255,255,.22); color: #fff; }
+-.brig-panel hr { border: 0; border-top: 1px solid var(--line); margin: 8px 4px; }
++.brig-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 18px; align-items: start; }
++.brig-panel { position: sticky; top: 84px; max-height: calc(100vh - 110px); overflow-y: auto; padding: 14px 12px; border-radius: 20px; }
++.brig-panel a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin: 1px 0; border-radius: 10px; color: var(--text); opacity: .86; font-weight: 500; font-size: 13.5px; text-decoration: none; transition: background .15s, color .15s; }
++.brig-panel a:hover { background: var(--info-bg); opacity: 1; text-decoration: none; }
++.brig-panel a .ic { width: 16px; height: 16px; flex: none; color: var(--muted); }
++.brig-panel a .n { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--muted); }
++.brig-panel a.on { background: var(--info-bg); color: var(--brand); opacity: 1; font-weight: 700; }
++.brig-panel a.on .ic, .brig-panel a.on .n { color: var(--brand); }
++.brig-panel .gr { display: flex; align-items: center; gap: 8px; margin: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); }
++.brig-panel .gr .ic { width: 14px; height: 14px; }
++.brig-panel .gr + a, .brig-panel .gr ~ a { padding-left: 26px; }
++@media (max-width: 900px) {
++  .brig-layout { grid-template-columns: 1fr; }
++  .brig-panel { position: static; max-height: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; }
++  .brig-panel .gr { display: none; }
++  .brig-panel a, .brig-panel .gr ~ a { margin: 0; padding: 7px 12px; }
++}
+ .brig-gr { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+ .brig-gr h3 { margin: 0; }
+ @media (max-width: 900px) {
+diff --git a/core/templates/core/brigadalar.html b/core/templates/core/brigadalar.html
+index 4251bc4..364e04c 100644
+--- a/core/templates/core/brigadalar.html
++++ b/core/templates/core/brigadalar.html
+@@ -5,10 +5,9 @@
+ {% block topact %}{% if tuman and rx.brigadalar_yaratish %}<form method="post" action="{% url 'brigada_yangi' tuman.id %}">{% csrf_token %}<button class="btn sm" type="submit">+ Yangi brigada</button></form>{% endif %}{% endblock %}
+ {% block content %}
+ <div class="brig-layout">
+-  <aside class="card brig-panel" aria-label="ESP lar">
+-    <h4>ESP lar</h4>
+-    <a href="{% url 'brigadalar' %}" class="{% if not brig_menyu.tanlangan %}on{% endif %}">Barcha brigadalar <span class="n">{{ brig_menyu.jami }}</span></a>
+-    <hr>
++  <aside class="card brig-panel" aria-label="ESP lar menyusi">
++    <a href="{% url 'brigadalar' %}" class="{% if not brig_menyu.tanlangan %}on{% endif %}"><svg class="ic"><use href="#i-team"/></svg> Barcha brigadalar <span class="n">{{ brig_menyu.jami }}</span></a>
++    <div class="gr"><svg class="ic"><use href="#i-bolt"/></svg> ESP lar</div>
+     {% for t in brig_menyu.tumanlar %}<a href="{% url 'brigadalar' %}?tuman={{ t.id }}" class="{% if brig_menyu.tanlangan == t.id %}on{% endif %}">{{ t.korsat }} <span class="n">{{ t.brig_soni }}</span></a>{% endfor %}
+   </aside>
+   <div>

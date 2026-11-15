@@ -5,10 +5,9 @@
 {% block topact %}{% if tuman and rx.brigadalar_yaratish %}<form method="post" action="{% url 'brigada_yangi' tuman.id %}">{% csrf_token %}<button class="btn sm" type="submit">+ Yangi brigada</button></form>{% endif %}{% endblock %}
 {% block content %}
 <div class="brig-layout">
-  <aside class="card brig-panel" aria-label="ESP lar">
-    <h4>ESP lar</h4>
-    <a href="{% url 'brigadalar' %}" class="{% if not brig_menyu.tanlangan %}on{% endif %}">Barcha brigadalar <span class="n">{{ brig_menyu.jami }}</span></a>
-    <hr>
+  <aside class="card brig-panel" aria-label="ESP lar menyusi">
+    <a href="{% url 'brigadalar' %}" class="{% if not brig_menyu.tanlangan %}on{% endif %}"><svg class="ic"><use href="#i-team"/></svg> Barcha brigadalar <span class="n">{{ brig_menyu.jami }}</span></a>
+    <div class="gr"><svg class="ic"><use href="#i-bolt"/></svg> ESP lar</div>
     {% for t in brig_menyu.tumanlar %}<a href="{% url 'brigadalar' %}?tuman={{ t.id }}" class="{% if brig_menyu.tanlangan == t.id %}on{% endif %}">{{ t.korsat }} <span class="n">{{ t.brig_soni }}</span></a>{% endfor %}
   </aside>
   <div>
