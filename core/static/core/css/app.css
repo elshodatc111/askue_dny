@@ -166,7 +166,7 @@ tr.jami td { background: #fef3c7 !important; font-weight: 800; border-bottom: 2p
 .legend-row i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 
 /* xabarlar */
-.toasts { position: fixed; top: 16px; right: 16px; z-index: 100; display: flex; flex-direction: column; gap: 10px; width: min(420px, calc(100vw - 24px)); }
+.toasts { position: fixed !important; top: 16px; right: 16px; z-index: 400 !important; display: flex; flex-direction: column; gap: 10px; width: min(420px, calc(100vw - 24px)); }
 .toast { position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: 12px; padding: 14px 14px 16px 14px; border-radius: 14px; border: 1px solid var(--tb); background: var(--tbg); color: var(--tc); box-shadow: 0 10px 30px rgba(15,23,42,.14); animation: slideIn .35s ease both; font-size: 13.5px; line-height: 1.45; --tb: #bfdbfe; --tbg: #eff6ff; --tc: #1e3a8a; --ti: #3b82f6; }
 .toast.success { --tb: #a7f3d0; --tbg: #ecfdf5; --tc: #065f46; --ti: #10b981; }
 .toast.error { --tb: #fecaca; --tbg: #fef2f2; --tc: #991b1b; --ti: #ef4444; }

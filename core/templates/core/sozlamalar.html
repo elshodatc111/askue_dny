@@ -5,11 +5,12 @@
 {% block h1sub %}Telegram bot va guruhlar{% endblock %}
 {% block content %}
 {% if not rx.sozlamalar_tahrirlash %}<div class="err" style="background:var(--warn-bg);color:#b45309">Sizda sozlamalarni o'zgartirish ruxsati yo'q, faqat ko'rishingiz mumkin.</div>{% endif %}
-<div class="grid g2">
+<div class="grid g2" id="tg-sahifa" data-tekshir="{% url 'tg_tekshir' %}">
   <div class="card">
     <h3>1. Telegram bot</h3>
     <div class="sub">@BotFather orqali bot yarating va uning tokenini shu yerga kiriting.</div>
-    {% if token_bor %}<p style="margin:6px 0 12px"><span class="chip g">Ulangan: {{ bot_nomi }}</span> <span class="muted" style="font-size:12px">token: {{ token_niqob }}</span></p>
+    {% if token_bor %}<p style="margin:6px 0 12px"><span class="chip g">Ulangan: {{ bot_nomi }}</span> <span class="muted" style="font-size:12px">token: {{ token_niqob }}</span> <span class="chip tek-bot" id="tek-bot">Tekshirilmoqda…</span></p>
+    <p style="margin:-4px 0 12px"><button type="button" class="btn sec sm" id="tek-bot-btn">Botni tekshirish</button></p>
     {% else %}<p style="margin:6px 0 12px"><span class="chip r">Bot ulanmagan</span></p>{% endif %}
     {% if rx.sozlamalar_tahrirlash %}
     <form method="post" class="flex" style="gap:8px;align-items:stretch">{% csrf_token %}<input type="hidden" name="amal" value="token">
@@ -34,20 +35,23 @@
 <div class="card mt">
   <div class="flex" style="justify-content:space-between">
     <div><h3>2. Guruhlar</h3><div class="sub" style="margin:0">Fayllar yuboriladigan guruhlar ro'yxati. Yoqilgan guruhlar yuborish oynasida ko'rinadi.</div></div>
-    {% if rx.sozlamalar_tahrirlash and token_bor %}<form method="post">{% csrf_token %}<input type="hidden" name="amal" value="aniqlash"><button class="btn" type="submit">Guruhlarni aniqlash</button></form>{% endif %}
+    <div class="flex" style="gap:8px">{% if token_bor and guruhlar %}<button type="button" class="btn sec" id="tek-hamma">Hammasini tekshirish</button>{% endif %}
+    {% if rx.sozlamalar_tahrirlash and token_bor %}<form method="post">{% csrf_token %}<input type="hidden" name="amal" value="aniqlash"><button class="btn" type="submit">Guruhlarni aniqlash</button></form>{% endif %}</div>
   </div>
   <div class="tw" style="margin-top:12px"><table class="jadval">
-    <thead><tr><th>Guruh nomi</th><th>Chat ID</th><th>Turi</th><th>Holat</th><th></th></tr></thead>
+    <thead><tr><th>Guruh nomi</th><th>Chat ID</th><th>Turi</th><th>Holat</th><th>Bot holati</th><th></th></tr></thead>
     <tbody>
-    {% for g in guruhlar %}<tr>
+    {% for g in guruhlar %}<tr data-guruh="{{ g.id }}">
       <td><b>{{ g.nom }}</b></td><td><code>{{ g.chat_id }}</code></td><td>{{ g.tur|default:"-" }}</td>
       <td>{% if g.faol %}<span class="chip g">Yoqilgan</span>{% else %}<span class="chip r">O'chirilgan</span>{% endif %}</td>
-      <td>{% if rx.sozlamalar_tahrirlash %}<div class="flex" style="gap:6px">
+      <td><span class="chip tek-g" title="">{% if token_bor %}Tekshirilmoqda…{% else %}-{% endif %}</span></td>
+      <td><div class="flex" style="gap:6px">{% if token_bor %}<button type="button" class="btn sec sm tek-btn">Tekshirish</button>{% endif %}
+      {% if rx.sozlamalar_tahrirlash %}
         <form method="post">{% csrf_token %}<input type="hidden" name="amal" value="sinov"><input type="hidden" name="id" value="{{ g.id }}"><button class="btn sec sm" type="submit" {% if not token_bor %}disabled{% endif %}>Sinov xabari</button></form>
         <form method="post">{% csrf_token %}<input type="hidden" name="amal" value="almashtir"><input type="hidden" name="id" value="{{ g.id }}"><button class="btn sec sm" type="submit">{% if g.faol %}O'chirish{% else %}Yoqish{% endif %}</button></form>
         <form method="post" onsubmit="return confirm('Guruhni ro\'yxatdan olib tashlaysizmi?')">{% csrf_token %}<input type="hidden" name="amal" value="ochirish"><input type="hidden" name="id" value="{{ g.id }}"><button class="btn sec sm" type="submit">Olib tashlash</button></form>
-      </div>{% endif %}</td>
-    </tr>{% empty %}<tr><td colspan="5" class="muted" style="text-align:center;padding:28px">Hali guruh yo'q. Botni guruhga qo'shib, «Guruhlarni aniqlash» ni bosing.</td></tr>{% endfor %}
+      {% endif %}</div></td>
+    </tr>{% empty %}<tr><td colspan="6" class="muted" style="text-align:center;padding:28px">Hali guruh yo'q. Botni guruhga qo'shib, «Guruhlarni aniqlash» ni bosing.</td></tr>{% endfor %}
     </tbody></table></div>
   {% if rx.sozlamalar_tahrirlash and token_bor %}
   <form method="post" style="margin-top:14px">{% csrf_token %}<input type="hidden" name="amal" value="qosh">
@@ -74,4 +78,63 @@
     </tr>{% empty %}<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Hali yuborilmagan.</td></tr>{% endfor %}
     </tbody></table></div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+{% verbatim %}
+(function () {
+  var root = document.getElementById('tg-sahifa'); if (!root) return;
+  var URL_ = root.dataset.tekshir;
+  function toast(t, tur, key) { if (window.bildirish) window.bildirish(t, tur, key); }
+  var TUR = { ok: 'success', ogoh: 'warning', xato: 'error' };
+  var MATN = { ok: 'Tayyor', ogoh: 'Ogohlantirish', xato: 'Xato' };
+  var CLS = { ok: 'g', ogoh: 'y', xato: 'r' };
+  function belgi(el, d) { if (!el) return; el.className = 'chip ' + (CLS[d.holat] || '') + (el.classList.contains('tek-g') ? ' tek-g' : ''); el.id = el.id || ''; el.textContent = MATN[d.holat] || '?'; el.title = d.matn || '';
+    if (el.classList.contains('tek-g')) { var sm = el.parentNode.querySelector('.tek-matn'); if (!sm) { sm = document.createElement('div'); sm.className = 'tek-matn muted'; sm.style.cssText = 'font-size:11.5px;line-height:1.35;margin-top:4px;max-width:260px;white-space:normal'; el.parentNode.appendChild(sm); } sm.textContent = (d.matn || '').replace(/^«[^»]*»:\s*/, ''); } }
+  function sora(qs) {
+    return fetch(URL_ + '?' + qs, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .catch(function (e) { return { holat: 'xato', matn: 'Tekshirib bo\'lmadi: ' + e.message }; });
+  }
+  function botTek(jim) {
+    var el = document.getElementById('tek-bot'); if (el) { el.className = 'chip'; el.textContent = 'Tekshirilmoqda…'; }
+    return sora('tur=bot').then(function (d) { belgi(el, d); if (!jim) toast(d.matn, TUR[d.holat]); return d; });
+  }
+  function guruhTek(tr, jim) {
+    var el = tr.querySelector('.tek-g'); if (el) { el.className = 'chip tek-g'; el.textContent = 'Tekshirilmoqda…'; el.title = ''; var o = el.parentNode.querySelector('.tek-matn'); if (o) o.textContent = ''; }
+    return sora('tur=guruh&id=' + tr.dataset.guruh).then(function (d) { belgi(el, d); if (!jim) toast(d.matn, TUR[d.holat]); return d; });
+  }
+  function hammasi(jim) {
+    var qatorlar = Array.prototype.slice.call(document.querySelectorAll('tr[data-guruh]'));
+    return botTek(true).then(function (b) {
+      if (b.holat === 'xato') { if (!jim) toast(b.matn, 'error'); else toast(b.matn, 'error', 'tek_bot'); qatorlar.forEach(function (tr) { belgi(tr.querySelector('.tek-g'), { holat: 'xato', matn: 'Bot ishlamayapti' }); }); return; }
+      var i = 0, xato = 0, ogoh = 0;
+      (function keyingi() {
+        if (i >= qatorlar.length) {
+          if (!qatorlar.length) return;
+          if (xato) toast(xato + ' ta guruhda muammo bor. «Bot holati» ustunida sababini ko\'ring.', 'error');
+          else if (ogoh) toast('Barcha guruhlar topildi, ' + ogoh + ' tasida botni administrator qilish tavsiya etiladi.', 'warning');
+          else if (!jim) toast('Bot va barcha guruhlar tekshirildi: hammasi joyida.', 'success');
+          return;
+        }
+        guruhTek(qatorlar[i++], true).then(function (d) { if (d.holat === 'xato') xato++; else if (d.holat === 'ogoh') ogoh++; keyingi(); });
+      })();
+    });
+  }
+  var bb = document.getElementById('tek-bot-btn'); if (bb) bb.addEventListener('click', function () { bb.disabled = true; botTek(false).then(function () { bb.disabled = false; }); });
+  var hb = document.getElementById('tek-hamma'); if (hb) hb.addEventListener('click', function () { hb.disabled = true; hammasi(false).then(function () { setTimeout(function () { hb.disabled = false; }, 600); }); });
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('.tek-btn'); if (!b) return;
+    b.disabled = true; guruhTek(b.closest('tr'), false).then(function () { b.disabled = false; });
+  });
+  // har bir amalda tugma «bajarilmoqda» holatiga o'tadi (natija sahifa yangilangach xabar bo'lib chiqadi)
+  document.addEventListener('submit', function (e) {
+    var f = e.target; if (f.method !== 'post' || e.defaultPrevented) return;
+    var b = f.querySelector('button[type=submit]');
+    setTimeout(function () { if (b) { b.disabled = true; b.dataset.asl = b.textContent; b.textContent = 'Bajarilmoqda…'; } toast('Amal bajarilmoqda…', 'info'); }, 0);
+  });
+  if (document.getElementById('tek-bot')) hammasi(true);
+})();
+{% endverbatim %}
+</script>
 {% endblock %}

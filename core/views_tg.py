@@ -125,6 +125,55 @@ def _amal(request, sz, amal):
             messages.success(request, f"«{g.nom}» guruhiga sinov xabari yuborildi.")
 
 
+@ruxsat_kerak("sozlamalar.korish")
+def tekshir(request):
+    """Bot (tur=bot) yoki guruh (tur=guruh&id=..) holatini Telegram orqali tekshiradi. JSON: holat (ok|ogoh|xato) va matn."""
+    sz = TelegramSozlama.olish()
+    if not sz.bot_token:
+        return JsonResponse({"holat": "xato", "matn": "Bot tokeni kiritilmagan. Avval tokenni kiriting."})
+    try:
+        bot = T.bot_haqida(sz.bot_token)
+    except T.TgXato as e:
+        return JsonResponse({"holat": "xato", "matn": f"Bot tokeni ishlamayapti: {T.xato_matni(e)}"})
+    nom_b = "@" + (bot.get("username") or "")
+    if request.GET.get("tur") != "guruh":
+        if sz.bot_nomi != nom_b:
+            sz.bot_nomi = nom_b
+            sz.save(update_fields=["bot_nomi"])
+        return JsonResponse({"holat": "ok", "matn": f"Bot ishlayapti: {nom_b}"})
+    g = get_object_or_404(TelegramGuruh, pk=request.GET.get("id"))
+    chat = None
+    for _ in range(2):
+        try:
+            chat = T.chat_haqida(sz.bot_token, g.chat_id)
+            break
+        except T.TgXato as e:
+            yangi = (e.parametrlar or {}).get("migrate_to_chat_id")
+            if yangi:  # guruh supergruppaga aylangan: yangi ID ni saqlaymiz
+                g.chat_id = str(yangi)
+                g.save(update_fields=["chat_id"])
+                continue
+            return JsonResponse({"holat": "xato", "matn": f"«{g.nom}»: {T.xato_matni(e)}"})
+    if chat is None:
+        return JsonResponse({"holat": "xato", "matn": f"«{g.nom}»: guruhni topib bo'lmadi."})
+    yangi_nom, yangi_tur = (chat.get("title") or g.nom)[:200], chat.get("type") or g.tur
+    if (yangi_nom, yangi_tur) != (g.nom, g.tur):
+        g.nom, g.tur = yangi_nom, yangi_tur
+        g.save(update_fields=["nom", "tur"])
+    try:
+        azo = T.azo_holati(sz.bot_token, g.chat_id, bot.get("id"))
+    except T.TgXato as e:
+        return JsonResponse({"holat": "ogoh", "matn": f"«{g.nom}»: guruh topildi, lekin bot huquqini aniqlab bo'lmadi ({T.xato_matni(e)})"})
+    st = azo.get("status")
+    if st in ("creator", "administrator"):
+        return JsonResponse({"holat": "ok", "matn": f"«{g.nom}»: bot administrator, yuborishga tayyor."})
+    if st == "member":
+        return JsonResponse({"holat": "ogoh", "matn": f"«{g.nom}»: bot oddiy a'zo. Fayl yuborish uchun uni administrator qiling."})
+    if st == "restricted" and azo.get("is_member") and azo.get("can_send_documents", True):
+        return JsonResponse({"holat": "ogoh", "matn": f"«{g.nom}»: botga cheklov qo'yilgan, yuborish ishlashi mumkin."})
+    return JsonResponse({"holat": "xato", "matn": f"«{g.nom}»: bot guruhda yo'q yoki chiqarib yuborilgan. Botni guruhga administrator qilib qo'shing."})
+
+
 # ---------------------------------------------------------------- yuborish
 @login_required
 def guruhlar(request):

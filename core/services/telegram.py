@@ -57,6 +57,11 @@ def bot_haqida(token):
     return _chaqir(token, "getMe", timeout=20)
 
 
+def azo_holati(token, chat_id, user_id):
+    """getChatMember: botning guruhdagi holati (creator | administrator | member | restricted | left | kicked)."""
+    return _chaqir(token, "getChatMember", {"chat_id": chat_id, "user_id": user_id}, timeout=20)
+
+
 def chat_haqida(token, chat_id):
     return _chaqir(token, "getChat", {"chat_id": chat_id}, timeout=20)
 

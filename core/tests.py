@@ -414,15 +414,21 @@ class TelegramTest(TestCase):
         self.g2 = TelegramGuruh.objects.create(nom="Guruh 2", chat_id="-1002")
         self.qongiroqlar = []
         self.xato_chat = None
+        self.yoq_chat = None
+        self.azo_holat = "administrator"
         self.yangilanishlar = []
 
         def soxta(token, metod, maydonlar=None, fayl=None, timeout=60):
             self.qongiroqlar.append((metod, maydonlar, fayl))
             if metod == "getMe":
-                return {"username": "hodim_bot"}
+                return {"username": "hodim_bot", "id": 777}
+            if metod == "getChatMember":
+                return {"status": self.azo_holat}
             if metod == "getUpdates":
                 u, self.yangilanishlar = self.yangilanishlar, []
                 return u
+            if metod == "getChat" and maydonlar["chat_id"] == self.yoq_chat:
+                raise T.TgXato("Bad Request: chat not found", 400)
             if metod == "getChat":
                 return {"id": int(maydonlar["chat_id"]), "title": "Qo'lda guruh", "type": "supergroup"}
             if metod == "sendDocument" and maydonlar["chat_id"] == self.xato_chat:
@@ -497,6 +503,38 @@ class TelegramTest(TestCase):
         for m, f in h:
             self.assertNotIn("caption", m)
             self.assertTrue(f[2].startswith(b"%PDF"))
+
+    def test_bot_va_guruh_tekshirish(self):
+        url = reverse("tg_tekshir")
+        d = self.client.get(url, {"tur": "bot"}).json()
+        self.assertEqual(d["holat"], "ok")
+        self.assertIn("@hodim_bot", d["matn"])
+        d = self.client.get(url, {"tur": "guruh", "id": self.g1.id}).json()
+        self.assertEqual(d["holat"], "ok")
+        self.assertIn("administrator", d["matn"])
+        self.azo_holat = "member"
+        self.assertEqual(self.client.get(url, {"tur": "guruh", "id": self.g1.id}).json()["holat"], "ogoh")
+        self.azo_holat = "kicked"
+        self.assertEqual(self.client.get(url, {"tur": "guruh", "id": self.g1.id}).json()["holat"], "xato")
+        self.yoq_chat = "-1002"
+        d = self.client.get(url, {"tur": "guruh", "id": self.g2.id}).json()
+        self.assertEqual(d["holat"], "xato")
+        self.assertIn("Guruh 2", d["matn"])
+        self.assertIn("Guruh topilmadi", d["matn"])
+        sz = TelegramSozlama.olish()
+        sz.bot_token = ""
+        sz.save()
+        self.assertEqual(self.client.get(url, {"tur": "bot"}).json()["holat"], "xato")
+
+    def test_sozlamalar_sahifasida_tekshirish(self):
+        r = self.client.get(reverse("sozlamalar"))
+        for k in ("tek-bot-btn", "tek-hamma", "tek-btn", "Bot holati"):
+            self.assertContains(r, k)
+
+    def test_toast_konteyneri_fixed(self):
+        import pathlib
+        css = (pathlib.Path(__file__).parent / "static/core/css/energy.css").read_text(encoding="utf-8")
+        self.assertNotIn(".app, .toasts", css)  # aks holda xabarlar sahifa pastida chiqib qoladi
 
     def test_qisman_xato(self):
         self.xato_chat = "-1002"

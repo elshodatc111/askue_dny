@@ -31,7 +31,7 @@ a { color: var(--sect); }
 @keyframes oqim { to { stroke-dashoffset: -60; } }
 @keyframes uchqun { 0%, 100% { opacity: 0; transform: translateY(0) scale(.6); } 50% { opacity: 1; transform: translateY(-34px) scale(1.2); } }
 @keyframes nafas { 50% { opacity: .55; } }
-.app, .toasts { position: relative; z-index: 1; }
+.app { position: relative; z-index: 1; }
 
 /* ----- yon panel ----- */
 .side { background: linear-gradient(180deg, #0c1a45 0%, #0a1330 55%, #070d24 100%); border-right: 1px solid rgba(255,255,255,.05); }

@@ -28,6 +28,7 @@ urlpatterns = [
     path("brigadalar/<int:pk>/ochirish/", views.brigada_ochirish, name="brigada_ochirish"),
     path("tp-kochirish/", views.tp_kochirish, name="tp_kochirish"),
     path("sozlamalar/", views_tg.sozlamalar, name="sozlamalar"),
+    path("sozlamalar/tekshir/", views_tg.tekshir, name="tg_tekshir"),
     path("telegram/guruhlar/", views_tg.guruhlar, name="tg_guruhlar"),
     path("telegram/yuborish/", views_tg.yuborish, name="tg_yuborish"),
     path("telegram/holat/<int:pk>/", views_tg.holat, name="tg_holat"),

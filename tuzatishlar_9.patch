@@ -1,0 +1,278 @@
+--- a/core/static/core/css/energy.css
++++ b/core/static/core/css/energy.css
+@@ -31,7 +31,7 @@
+ @keyframes oqim { to { stroke-dashoffset: -60; } }
+ @keyframes uchqun { 0%, 100% { opacity: 0; transform: translateY(0) scale(.6); } 50% { opacity: 1; transform: translateY(-34px) scale(1.2); } }
+ @keyframes nafas { 50% { opacity: .55; } }
+-.app, .toasts { position: relative; z-index: 1; }
++.app { position: relative; z-index: 1; }
+ 
+ /* ----- yon panel ----- */
+ .side { background: linear-gradient(180deg, #0c1a45 0%, #0a1330 55%, #070d24 100%); border-right: 1px solid rgba(255,255,255,.05); }
+--- a/core/static/core/css/app.css
++++ b/core/static/core/css/app.css
+@@ -166,7 +166,7 @@
+ .legend-row i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+ 
+ /* xabarlar */
+-.toasts { position: fixed; top: 16px; right: 16px; z-index: 100; display: flex; flex-direction: column; gap: 10px; width: min(420px, calc(100vw - 24px)); }
++.toasts { position: fixed !important; top: 16px; right: 16px; z-index: 400 !important; display: flex; flex-direction: column; gap: 10px; width: min(420px, calc(100vw - 24px)); }
+ .toast { position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: 12px; padding: 14px 14px 16px 14px; border-radius: 14px; border: 1px solid var(--tb); background: var(--tbg); color: var(--tc); box-shadow: 0 10px 30px rgba(15,23,42,.14); animation: slideIn .35s ease both; font-size: 13.5px; line-height: 1.45; --tb: #bfdbfe; --tbg: #eff6ff; --tc: #1e3a8a; --ti: #3b82f6; }
+ .toast.success { --tb: #a7f3d0; --tbg: #ecfdf5; --tc: #065f46; --ti: #10b981; }
+ .toast.error { --tb: #fecaca; --tbg: #fef2f2; --tc: #991b1b; --ti: #ef4444; }
+--- a/core/services/telegram.py
++++ b/core/services/telegram.py
+@@ -57,6 +57,11 @@
+     return _chaqir(token, "getMe", timeout=20)
+ 
+ 
++def azo_holati(token, chat_id, user_id):
++    """getChatMember: botning guruhdagi holati (creator | administrator | member | restricted | left | kicked)."""
++    return _chaqir(token, "getChatMember", {"chat_id": chat_id, "user_id": user_id}, timeout=20)
++
++
+ def chat_haqida(token, chat_id):
+     return _chaqir(token, "getChat", {"chat_id": chat_id}, timeout=20)
+ 
+--- a/core/views_tg.py
++++ b/core/views_tg.py
+@@ -125,6 +125,55 @@
+             messages.success(request, f"«{g.nom}» guruhiga sinov xabari yuborildi.")
+ 
+ 
++@ruxsat_kerak("sozlamalar.korish")
++def tekshir(request):
++    """Bot (tur=bot) yoki guruh (tur=guruh&id=..) holatini Telegram orqali tekshiradi. JSON: holat (ok|ogoh|xato) va matn."""
++    sz = TelegramSozlama.olish()
++    if not sz.bot_token:
++        return JsonResponse({"holat": "xato", "matn": "Bot tokeni kiritilmagan. Avval tokenni kiriting."})
++    try:
++        bot = T.bot_haqida(sz.bot_token)
++    except T.TgXato as e:
++        return JsonResponse({"holat": "xato", "matn": f"Bot tokeni ishlamayapti: {T.xato_matni(e)}"})
++    nom_b = "@" + (bot.get("username") or "")
++    if request.GET.get("tur") != "guruh":
++        if sz.bot_nomi != nom_b:
++            sz.bot_nomi = nom_b
++            sz.save(update_fields=["bot_nomi"])
++        return JsonResponse({"holat": "ok", "matn": f"Bot ishlayapti: {nom_b}"})
++    g = get_object_or_404(TelegramGuruh, pk=request.GET.get("id"))
++    chat = None
++    for _ in range(2):
++        try:
++            chat = T.chat_haqida(sz.bot_token, g.chat_id)
++            break
++        except T.TgXato as e:
++            yangi = (e.parametrlar or {}).get("migrate_to_chat_id")
++            if yangi:  # guruh supergruppaga aylangan: yangi ID ni saqlaymiz
++                g.chat_id = str(yangi)
++                g.save(update_fields=["chat_id"])
++                continue
++            return JsonResponse({"holat": "xato", "matn": f"«{g.nom}»: {T.xato_matni(e)}"})
++    if chat is None:
++        return JsonResponse({"holat": "xato", "matn": f"«{g.nom}»: guruhni topib bo'lmadi."})
++    yangi_nom, yangi_tur = (chat.get("title") or g.nom)[:200], chat.get("type") or g.tur
++    if (yangi_nom, yangi_tur) != (g.nom, g.tur):
++        g.nom, g.tur = yangi_nom, yangi_tur
++        g.save(update_fields=["nom", "tur"])
++    try:
++        azo = T.azo_holati(sz.bot_token, g.chat_id, bot.get("id"))
++    except T.TgXato as e:
++        return JsonResponse({"holat": "ogoh", "matn": f"«{g.nom}»: guruh topildi, lekin bot huquqini aniqlab bo'lmadi ({T.xato_matni(e)})"})
++    st = azo.get("status")
++    if st in ("creator", "administrator"):
++        return JsonResponse({"holat": "ok", "matn": f"«{g.nom}»: bot administrator, yuborishga tayyor."})
++    if st == "member":
++        return JsonResponse({"holat": "ogoh", "matn": f"«{g.nom}»: bot oddiy a'zo. Fayl yuborish uchun uni administrator qiling."})
++    if st == "restricted" and azo.get("is_member") and azo.get("can_send_documents", True):
++        return JsonResponse({"holat": "ogoh", "matn": f"«{g.nom}»: botga cheklov qo'yilgan, yuborish ishlashi mumkin."})
++    return JsonResponse({"holat": "xato", "matn": f"«{g.nom}»: bot guruhda yo'q yoki chiqarib yuborilgan. Botni guruhga administrator qilib qo'shing."})
++
++
+ # ---------------------------------------------------------------- yuborish
+ @login_required
+ def guruhlar(request):
+--- a/core/urls.py
++++ b/core/urls.py
+@@ -28,6 +28,7 @@
+     path("brigadalar/<int:pk>/ochirish/", views.brigada_ochirish, name="brigada_ochirish"),
+     path("tp-kochirish/", views.tp_kochirish, name="tp_kochirish"),
+     path("sozlamalar/", views_tg.sozlamalar, name="sozlamalar"),
++    path("sozlamalar/tekshir/", views_tg.tekshir, name="tg_tekshir"),
+     path("telegram/guruhlar/", views_tg.guruhlar, name="tg_guruhlar"),
+     path("telegram/yuborish/", views_tg.yuborish, name="tg_yuborish"),
+     path("telegram/holat/<int:pk>/", views_tg.holat, name="tg_holat"),
+--- a/core/templates/core/sozlamalar.html
++++ b/core/templates/core/sozlamalar.html
+@@ -5,11 +5,12 @@
+ {% block h1sub %}Telegram bot va guruhlar{% endblock %}
+ {% block content %}
+ {% if not rx.sozlamalar_tahrirlash %}<div class="err" style="background:var(--warn-bg);color:#b45309">Sizda sozlamalarni o'zgartirish ruxsati yo'q, faqat ko'rishingiz mumkin.</div>{% endif %}
+-<div class="grid g2">
++<div class="grid g2" id="tg-sahifa" data-tekshir="{% url 'tg_tekshir' %}">
+   <div class="card">
+     <h3>1. Telegram bot</h3>
+     <div class="sub">@BotFather orqali bot yarating va uning tokenini shu yerga kiriting.</div>
+-    {% if token_bor %}<p style="margin:6px 0 12px"><span class="chip g">Ulangan: {{ bot_nomi }}</span> <span class="muted" style="font-size:12px">token: {{ token_niqob }}</span></p>
++    {% if token_bor %}<p style="margin:6px 0 12px"><span class="chip g">Ulangan: {{ bot_nomi }}</span> <span class="muted" style="font-size:12px">token: {{ token_niqob }}</span> <span class="chip tek-bot" id="tek-bot">Tekshirilmoqda…</span></p>
++    <p style="margin:-4px 0 12px"><button type="button" class="btn sec sm" id="tek-bot-btn">Botni tekshirish</button></p>
+     {% else %}<p style="margin:6px 0 12px"><span class="chip r">Bot ulanmagan</span></p>{% endif %}
+     {% if rx.sozlamalar_tahrirlash %}
+     <form method="post" class="flex" style="gap:8px;align-items:stretch">{% csrf_token %}<input type="hidden" name="amal" value="token">
+@@ -34,20 +35,23 @@
+ <div class="card mt">
+   <div class="flex" style="justify-content:space-between">
+     <div><h3>2. Guruhlar</h3><div class="sub" style="margin:0">Fayllar yuboriladigan guruhlar ro'yxati. Yoqilgan guruhlar yuborish oynasida ko'rinadi.</div></div>
+-    {% if rx.sozlamalar_tahrirlash and token_bor %}<form method="post">{% csrf_token %}<input type="hidden" name="amal" value="aniqlash"><button class="btn" type="submit">Guruhlarni aniqlash</button></form>{% endif %}
++    <div class="flex" style="gap:8px">{% if token_bor and guruhlar %}<button type="button" class="btn sec" id="tek-hamma">Hammasini tekshirish</button>{% endif %}
++    {% if rx.sozlamalar_tahrirlash and token_bor %}<form method="post">{% csrf_token %}<input type="hidden" name="amal" value="aniqlash"><button class="btn" type="submit">Guruhlarni aniqlash</button></form>{% endif %}</div>
+   </div>
+   <div class="tw" style="margin-top:12px"><table class="jadval">
+-    <thead><tr><th>Guruh nomi</th><th>Chat ID</th><th>Turi</th><th>Holat</th><th></th></tr></thead>
++    <thead><tr><th>Guruh nomi</th><th>Chat ID</th><th>Turi</th><th>Holat</th><th>Bot holati</th><th></th></tr></thead>
+     <tbody>
+-    {% for g in guruhlar %}<tr>
++    {% for g in guruhlar %}<tr data-guruh="{{ g.id }}">
+       <td><b>{{ g.nom }}</b></td><td><code>{{ g.chat_id }}</code></td><td>{{ g.tur|default:"-" }}</td>
+       <td>{% if g.faol %}<span class="chip g">Yoqilgan</span>{% else %}<span class="chip r">O'chirilgan</span>{% endif %}</td>
+-      <td>{% if rx.sozlamalar_tahrirlash %}<div class="flex" style="gap:6px">
++      <td><span class="chip tek-g" title="">{% if token_bor %}Tekshirilmoqda…{% else %}-{% endif %}</span></td>
++      <td><div class="flex" style="gap:6px">{% if token_bor %}<button type="button" class="btn sec sm tek-btn">Tekshirish</button>{% endif %}
++      {% if rx.sozlamalar_tahrirlash %}
+         <form method="post">{% csrf_token %}<input type="hidden" name="amal" value="sinov"><input type="hidden" name="id" value="{{ g.id }}"><button class="btn sec sm" type="submit" {% if not token_bor %}disabled{% endif %}>Sinov xabari</button></form>
+         <form method="post">{% csrf_token %}<input type="hidden" name="amal" value="almashtir"><input type="hidden" name="id" value="{{ g.id }}"><button class="btn sec sm" type="submit">{% if g.faol %}O'chirish{% else %}Yoqish{% endif %}</button></form>
+         <form method="post" onsubmit="return confirm('Guruhni ro\'yxatdan olib tashlaysizmi?')">{% csrf_token %}<input type="hidden" name="amal" value="ochirish"><input type="hidden" name="id" value="{{ g.id }}"><button class="btn sec sm" type="submit">Olib tashlash</button></form>
+-      </div>{% endif %}</td>
+-    </tr>{% empty %}<tr><td colspan="5" class="muted" style="text-align:center;padding:28px">Hali guruh yo'q. Botni guruhga qo'shib, «Guruhlarni aniqlash» ni bosing.</td></tr>{% endfor %}
++      {% endif %}</div></td>
++    </tr>{% empty %}<tr><td colspan="6" class="muted" style="text-align:center;padding:28px">Hali guruh yo'q. Botni guruhga qo'shib, «Guruhlarni aniqlash» ni bosing.</td></tr>{% endfor %}
+     </tbody></table></div>
+   {% if rx.sozlamalar_tahrirlash and token_bor %}
+   <form method="post" style="margin-top:14px">{% csrf_token %}<input type="hidden" name="amal" value="qosh">
+@@ -75,3 +79,62 @@
+     </tbody></table></div>
+ </div>
+ {% endblock %}
++{% block scripts %}
++<script>
++{% verbatim %}
++(function () {
++  var root = document.getElementById('tg-sahifa'); if (!root) return;
++  var URL_ = root.dataset.tekshir;
++  function toast(t, tur, key) { if (window.bildirish) window.bildirish(t, tur, key); }
++  var TUR = { ok: 'success', ogoh: 'warning', xato: 'error' };
++  var MATN = { ok: 'Tayyor', ogoh: 'Ogohlantirish', xato: 'Xato' };
++  var CLS = { ok: 'g', ogoh: 'y', xato: 'r' };
++  function belgi(el, d) { if (!el) return; el.className = 'chip ' + (CLS[d.holat] || '') + (el.classList.contains('tek-g') ? ' tek-g' : ''); el.id = el.id || ''; el.textContent = MATN[d.holat] || '?'; el.title = d.matn || '';
++    if (el.classList.contains('tek-g')) { var sm = el.parentNode.querySelector('.tek-matn'); if (!sm) { sm = document.createElement('div'); sm.className = 'tek-matn muted'; sm.style.cssText = 'font-size:11.5px;line-height:1.35;margin-top:4px;max-width:260px;white-space:normal'; el.parentNode.appendChild(sm); } sm.textContent = (d.matn || '').replace(/^«[^»]*»:\s*/, ''); } }
++  function sora(qs) {
++    return fetch(URL_ + '?' + qs, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
++      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
++      .catch(function (e) { return { holat: 'xato', matn: 'Tekshirib bo\'lmadi: ' + e.message }; });
++  }
++  function botTek(jim) {
++    var el = document.getElementById('tek-bot'); if (el) { el.className = 'chip'; el.textContent = 'Tekshirilmoqda…'; }
++    return sora('tur=bot').then(function (d) { belgi(el, d); if (!jim) toast(d.matn, TUR[d.holat]); return d; });
++  }
++  function guruhTek(tr, jim) {
++    var el = tr.querySelector('.tek-g'); if (el) { el.className = 'chip tek-g'; el.textContent = 'Tekshirilmoqda…'; el.title = ''; var o = el.parentNode.querySelector('.tek-matn'); if (o) o.textContent = ''; }
++    return sora('tur=guruh&id=' + tr.dataset.guruh).then(function (d) { belgi(el, d); if (!jim) toast(d.matn, TUR[d.holat]); return d; });
++  }
++  function hammasi(jim) {
++    var qatorlar = Array.prototype.slice.call(document.querySelectorAll('tr[data-guruh]'));
++    return botTek(true).then(function (b) {
++      if (b.holat === 'xato') { if (!jim) toast(b.matn, 'error'); else toast(b.matn, 'error', 'tek_bot'); qatorlar.forEach(function (tr) { belgi(tr.querySelector('.tek-g'), { holat: 'xato', matn: 'Bot ishlamayapti' }); }); return; }
++      var i = 0, xato = 0, ogoh = 0;
++      (function keyingi() {
++        if (i >= qatorlar.length) {
++          if (!qatorlar.length) return;
++          if (xato) toast(xato + ' ta guruhda muammo bor. «Bot holati» ustunida sababini ko\'ring.', 'error');
++          else if (ogoh) toast('Barcha guruhlar topildi, ' + ogoh + ' tasida botni administrator qilish tavsiya etiladi.', 'warning');
++          else if (!jim) toast('Bot va barcha guruhlar tekshirildi: hammasi joyida.', 'success');
++          return;
++        }
++        guruhTek(qatorlar[i++], true).then(function (d) { if (d.holat === 'xato') xato++; else if (d.holat === 'ogoh') ogoh++; keyingi(); });
++      })();
++    });
++  }
++  var bb = document.getElementById('tek-bot-btn'); if (bb) bb.addEventListener('click', function () { bb.disabled = true; botTek(false).then(function () { bb.disabled = false; }); });
++  var hb = document.getElementById('tek-hamma'); if (hb) hb.addEventListener('click', function () { hb.disabled = true; hammasi(false).then(function () { setTimeout(function () { hb.disabled = false; }, 600); }); });
++  document.addEventListener('click', function (e) {
++    var b = e.target.closest('.tek-btn'); if (!b) return;
++    b.disabled = true; guruhTek(b.closest('tr'), false).then(function () { b.disabled = false; });
++  });
++  // har bir amalda tugma «bajarilmoqda» holatiga o'tadi (natija sahifa yangilangach xabar bo'lib chiqadi)
++  document.addEventListener('submit', function (e) {
++    var f = e.target; if (f.method !== 'post' || e.defaultPrevented) return;
++    var b = f.querySelector('button[type=submit]');
++    setTimeout(function () { if (b) { b.disabled = true; b.dataset.asl = b.textContent; b.textContent = 'Bajarilmoqda…'; } toast('Amal bajarilmoqda…', 'info'); }, 0);
++  });
++  if (document.getElementById('tek-bot')) hammasi(true);
++})();
++{% endverbatim %}
++</script>
++{% endblock %}
+--- a/core/tests.py
++++ b/core/tests.py
+@@ -414,15 +414,21 @@
+         self.g2 = TelegramGuruh.objects.create(nom="Guruh 2", chat_id="-1002")
+         self.qongiroqlar = []
+         self.xato_chat = None
++        self.yoq_chat = None
++        self.azo_holat = "administrator"
+         self.yangilanishlar = []
+ 
+         def soxta(token, metod, maydonlar=None, fayl=None, timeout=60):
+             self.qongiroqlar.append((metod, maydonlar, fayl))
+             if metod == "getMe":
+-                return {"username": "hodim_bot"}
++                return {"username": "hodim_bot", "id": 777}
++            if metod == "getChatMember":
++                return {"status": self.azo_holat}
+             if metod == "getUpdates":
+                 u, self.yangilanishlar = self.yangilanishlar, []
+                 return u
++            if metod == "getChat" and maydonlar["chat_id"] == self.yoq_chat:
++                raise T.TgXato("Bad Request: chat not found", 400)
+             if metod == "getChat":
+                 return {"id": int(maydonlar["chat_id"]), "title": "Qo'lda guruh", "type": "supergroup"}
+             if metod == "sendDocument" and maydonlar["chat_id"] == self.xato_chat:
+@@ -498,6 +504,38 @@
+             self.assertNotIn("caption", m)
+             self.assertTrue(f[2].startswith(b"%PDF"))
+ 
++    def test_bot_va_guruh_tekshirish(self):
++        url = reverse("tg_tekshir")
++        d = self.client.get(url, {"tur": "bot"}).json()
++        self.assertEqual(d["holat"], "ok")
++        self.assertIn("@hodim_bot", d["matn"])
++        d = self.client.get(url, {"tur": "guruh", "id": self.g1.id}).json()
++        self.assertEqual(d["holat"], "ok")
++        self.assertIn("administrator", d["matn"])
++        self.azo_holat = "member"
++        self.assertEqual(self.client.get(url, {"tur": "guruh", "id": self.g1.id}).json()["holat"], "ogoh")
++        self.azo_holat = "kicked"
++        self.assertEqual(self.client.get(url, {"tur": "guruh", "id": self.g1.id}).json()["holat"], "xato")
++        self.yoq_chat = "-1002"
++        d = self.client.get(url, {"tur": "guruh", "id": self.g2.id}).json()
++        self.assertEqual(d["holat"], "xato")
++        self.assertIn("Guruh 2", d["matn"])
++        self.assertIn("Guruh topilmadi", d["matn"])
++        sz = TelegramSozlama.olish()
++        sz.bot_token = ""
++        sz.save()
++        self.assertEqual(self.client.get(url, {"tur": "bot"}).json()["holat"], "xato")
++
++    def test_sozlamalar_sahifasida_tekshirish(self):
++        r = self.client.get(reverse("sozlamalar"))
++        for k in ("tek-bot-btn", "tek-hamma", "tek-btn", "Bot holati"):
++            self.assertContains(r, k)
++
++    def test_toast_konteyneri_fixed(self):
++        import pathlib
++        css = (pathlib.Path(__file__).parent / "static/core/css/energy.css").read_text(encoding="utf-8")
++        self.assertNotIn(".app, .toasts", css)  # aks holda xabarlar sahifa pastida chiqib qoladi
++
+     def test_qisman_xato(self):
+         self.xato_chat = "-1002"
+         self._yubor()
