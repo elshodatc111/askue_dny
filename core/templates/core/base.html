@@ -47,19 +47,16 @@
       {% with p=request.resolver_match.url_name %}
       <h6>Tahlil</h6>
       {% if rx.bosh_korish %}<a href="{% url 'bosh' %}" class="{% if p == 'bosh' %}on{% endif %}"><svg class="ic"><use href="#i-home"/></svg> Bosh panel</a>{% endif %}
-      {% if rx.dinamika_korish %}<a href="{% url 'dinamika' %}" class="{% if p == 'dinamika' %}on{% endif %}"><svg class="ic"><use href="#i-chart"/></svg> Dinamika jadvallari</a>{% endif %}
+      {% if rx.dinamika_korish %}<a href="{% url 'dinamika' %}" class="{% if p == 'dinamika' %}on{% endif %}"><svg class="ic"><use href="#i-chart"/></svg> Brigadalar dinamikasi</a>{% endif %}
       {% if rx.resp_dinamika_korish %}<a href="{% url 'resp_dinamika' %}" class="{% if p == 'resp_dinamika' %}on{% endif %}"><svg class="ic"><use href="#i-globe"/></svg> Respublika dinamikasi</a>{% endif %}
       {% if rx.royxat_korish %}<a href="{% url 'royxat' %}" class="{% if p == 'royxat' %}on{% endif %}"><svg class="ic"><use href="#i-list"/></svg> Nomma-nom ro'yxat</a>{% endif %}
       {% if rx.xarita_korish %}<a href="{% url 'xarita' %}" class="{% if p == 'xarita' %}on{% endif %}"><svg class="ic"><use href="#i-map"/></svg> Xarita</a>{% endif %}
       {% if boshqaruv_bor %}
       <h6>Boshqaruv</h6>
-      {% if rx.yuklash_korish %}<a href="{% url 'yuklash' %}" class="{% if p == 'yuklash' %}on{% endif %}"><svg class="ic"><use href="#i-upload"/></svg> Fayl yuklash</a>{% endif %}
+      {% if rx.yuklash_korish %}<a href="{% url 'yuklash' %}" class="{% if p == 'yuklash' %}on{% endif %}"><svg class="ic"><use href="#i-upload"/></svg> Brigada fayl yuklash</a>{% endif %}
       {% if rx.resp_yuklash_korish %}<a href="{% url 'resp_yuklash' %}" class="{% if p == 'resp_yuklash' %}on{% endif %}"><svg class="ic"><use href="#i-upload"/></svg> Respublika PDF yuklash</a>{% endif %}
       {% if rx.brigadalar_korish %}<a href="{% url 'brigadalar' %}" class="{% if p == 'brigadalar' or p == 'brigada_tahrir' %}on{% endif %}"><svg class="ic"><use href="#i-team"/></svg> Brigadalar</a>
-      {% if brig_menyu %}<div class="subnav">
-        <a href="{% url 'brigadalar' %}" class="{% if p == 'brigadalar' and not brig_menyu.tanlangan %}on{% endif %}">Barcha brigadalar <span class="n">{{ brig_menyu.jami }}</span></a>
-        {% for t in brig_menyu.tumanlar %}<a href="{% url 'brigadalar' %}?tuman={{ t.id }}" class="{% if brig_menyu.tanlangan == t.id %}on{% endif %}">{{ t.korsat }} <span class="n">{{ t.brig_soni }}</span></a>{% endfor %}
-      </div>{% endif %}{% endif %}
+{% endif %}
       {% if rx.tp_kochirish_korish %}<a href="{% url 'tp_kochirish' %}" class="{% if p == 'tp_kochirish' %}on{% endif %}"><svg class="ic"><use href="#i-move"/></svg> TP larni ko'chirish</a>{% endif %}
       {% if rx.foydalanuvchilar_korish %}<a href="{% url 'foydalanuvchilar' %}" class="{% if p == 'foydalanuvchilar' or p == 'foydalanuvchi_tahrir' or p == 'foydalanuvchi_yangi' %}on{% endif %}"><svg class="ic"><use href="#i-users"/></svg> Foydalanuvchilar</a>{% endif %}
       {% if rx.sozlamalar_korish %}<a href="{% url 'sozlamalar' %}" class="{% if p == 'sozlamalar' %}on{% endif %}"><svg class="ic"><use href="#i-gear"/></svg> Sozlamalar</a>{% endif %}

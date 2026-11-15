@@ -6,6 +6,8 @@ import uuid
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import PasswordChangeView
+from django.urls import reverse_lazy
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
@@ -384,6 +386,19 @@ def xarita_api(request):
     return JsonResponse({"nuqtalar": nuq, "hisob": hisob, "jami": sum(hisob.values())})
 
 
+class ParolView(PasswordChangeView):
+    template_name = "core/parol.html"
+    success_url = reverse_lazy("bosh")
+
+    def form_valid(self, form):
+        messages.success(self.request, "Parol muvaffaqiyatli o'zgartirildi.")
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Parolni o'zgartirib bo'lmadi. Eski parolni va yangi parol talablarini tekshiring.")
+        return super().form_invalid(form)
+
+
 OYLAR = {1: "yanvar", 2: "fevral", 3: "mart", 4: "aprel", 5: "may", 6: "iyun", 7: "iyul", 8: "avgust", 9: "sentabr", 10: "oktabr", 11: "noyabr", 12: "dekabr"}
 
 
@@ -450,9 +465,9 @@ def bildirish_holat(request):
             out.append({"k": f"y{y.id}", "faol": True})
         elif y.holat == "tayyor":
             tur = "" if y.tur == "kutilmoqda" else f" ({y.get_tur_display()})"
-            out.append({"k": f"y{y.id}", "faol": False, "tur": "success", "matn": f"✅ {nom}{tur}: qayta ishlandi. {y.xabar}"[:400]})
+            out.append({"k": f"y{y.id}", "faol": False, "tur": "success", "matn": f"{nom}{tur}: qayta ishlandi. {y.xabar}"[:400]})
         else:
-            out.append({"k": f"y{y.id}", "faol": False, "tur": "error", "matn": f"❌ {nom}: {(y.xabar or 'xato').splitlines()[0]}"[:400]})
+            out.append({"k": f"y{y.id}", "faol": False, "tur": "error", "matn": f"{nom}: {(y.xabar or 'xato').splitlines()[0]}"[:400]})
     for t in TelegramIsh.objects.filter(yaratgan=request.user, vaqt__gte=uzoq).order_by("-vaqt")[:20]:
         if t.holat != "jarayonda" and t.vaqt < yaqin:
             continue
@@ -460,23 +475,23 @@ def bildirish_holat(request):
         if t.holat == "jarayonda":
             out.append({"k": k, "faol": True})
         elif t.holat == "tayyor":
-            out.append({"k": k, "faol": False, "tur": "success", "matn": f"✅ Telegramga yuborildi: {t.sarlavha} ({t.yuborildi} ta xabar)."})
+            out.append({"k": k, "faol": False, "tur": "success", "matn": f"Telegramga yuborildi: {t.sarlavha} ({t.yuborildi} ta xabar)."})
         elif t.holat == "qisman":
-            out.append({"k": k, "faol": False, "tur": "warning", "matn": f"⚠️ Telegramga qisman yuborildi ({t.yuborildi}/{t.jami}): {t.xabar.splitlines()[0] if t.xabar else ''}"[:400]})
+            out.append({"k": k, "faol": False, "tur": "warning", "matn": f"Telegramga qisman yuborildi ({t.yuborildi}/{t.jami}): {t.xabar.splitlines()[0] if t.xabar else ''}"[:400]})
         else:
             sabab = t.xabar.splitlines()[0] if t.xabar else "noma'lum xato"
-            out.append({"k": k, "faol": False, "tur": "error", "matn": f"❌ Telegramga yuborib bo'lmadi: {sabab}"[:400]})
+            out.append({"k": k, "faol": False, "tur": "error", "matn": f"Telegramga yuborib bo'lmadi: {sabab}"[:400]})
     for r in RespIsh.objects.filter(yuklagan=request.user, vaqt__gte=uzoq).order_by("-vaqt")[:20]:
         if r.holat in ("navbatda", "jarayonda"):
             out.append({"k": f"r{r.id}", "faol": True})
         elif r.vaqt >= yaqin:
             k = f"r{r.id}"
             if r.holat == "tayyor":
-                out.append({"k": k, "faol": False, "tur": "success", "matn": f"✅ Respublika PDF o'qildi: {r.fayl_nomi}"})
+                out.append({"k": k, "faol": False, "tur": "success", "matn": f"Respublika PDF o'qildi: {r.fayl_nomi}"})
             elif r.holat == "ogoh":
-                out.append({"k": k, "faol": False, "tur": "warning", "matn": f"⚠️ Respublika PDF o'qildi, lekin ogohlantirish bor: {r.fayl_nomi}"})
+                out.append({"k": k, "faol": False, "tur": "warning", "matn": f"Respublika PDF o'qildi, lekin ogohlantirish bor: {r.fayl_nomi}"})
             else:
-                out.append({"k": k, "faol": False, "tur": "error", "matn": f"❌ Respublika PDF o'qilmadi: {r.fayl_nomi}. {(r.xabar or '').splitlines()[0] if r.xabar else ''}"[:400]})
+                out.append({"k": k, "faol": False, "tur": "error", "matn": f"Respublika PDF o'qilmadi: {r.fayl_nomi}. {(r.xabar or '').splitlines()[0] if r.xabar else ''}"[:400]})
     return JsonResponse({"ishlar": out})
 
 
@@ -569,7 +584,7 @@ def brigada_tahrir(request, pk):
         return redirect(f"/brigadalar/?tuman={b.tuman_id}")
     matn = "\n".join("; ".join(x for x in [h.ism, h.pinfl, h.telefon] if x or True).rstrip("; ") for h in b.hodimlar.all())
     boshqalar = Brigada.objects.filter(tuman=b.tuman).exclude(pk=b.pk).order_by("raqam")
-    return render(request, "core/brigada_tahrir.html", {"b": b, "matn": matn, "boshqalar": boshqalar, "tp_soni": b.tplar.count(), "brig_menyu": _brig_menyu(request.user, b.tuman_id)})
+    return render(request, "core/brigada_tahrir.html", {"b": b, "matn": matn, "boshqalar": boshqalar, "tp_soni": b.tplar.count()})
 
 
 @ruxsat_kerak("brigadalar.ochirish")
@@ -705,6 +720,7 @@ def foydalanuvchi_tahrir(request, pk=None):
             pr.save()
             messages.success(request, "Foydalanuvchi saqlandi.")
             return redirect("foydalanuvchilar")
+        messages.error(request, xato)
         admin_rol = rol == "admin"
     else:
         if u:

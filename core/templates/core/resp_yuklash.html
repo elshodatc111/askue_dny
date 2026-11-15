@@ -126,6 +126,7 @@
   var holatUrl = document.currentScript.getAttribute('data-holat'), faolEdi = false, taymer = null;
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
   function toast(t, tur) {
+    if (window.bildirish) { window.bildirish(t, tur); return; }
     var c = document.querySelector('.toasts');
     if (!c) { c = document.createElement('div'); c.className = 'toasts'; document.body.appendChild(c); }
     var e = document.createElement('div'); e.className = 'toast ' + (tur || ''); e.textContent = t; c.appendChild(e);

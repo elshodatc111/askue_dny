@@ -1,12 +1,12 @@
 from django.contrib.auth import views as auth_views
-from django.urls import path, reverse_lazy
+from django.urls import path
 
 from . import views, views_resp, views_tg
 
 urlpatterns = [
     path("kirish/", auth_views.LoginView.as_view(template_name="core/kirish.html", redirect_authenticated_user=True), name="kirish"),
     path("chiqish/", auth_views.LogoutView.as_view(), name="chiqish"),
-    path("parol/", auth_views.PasswordChangeView.as_view(template_name="core/parol.html", success_url=reverse_lazy("bosh")), name="parol"),
+    path("parol/", views.ParolView.as_view(), name="parol"),
     path("", views.bosh, name="bosh"),
     path("dinamika/", views.dinamika, name="dinamika"),
     path("respublika/", views_resp.resp_dinamika, name="resp_dinamika"),

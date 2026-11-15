@@ -49,13 +49,6 @@
     document.querySelectorAll('.bar i[data-w]').forEach(function (i) { i.style.width = i.getAttribute('data-w') + '%'; });
   }, 150);
 
-  // ---- xabarlar avtomatik yo'qolishi ----
-  // (xato xabarlari yo'qolmaydi, bosilganda yopiladi - foydalanuvchi o'qib ulgurishi uchun)
-  setTimeout(function () {
-    document.querySelectorAll('.toast:not(.error)').forEach(function (t) { t.style.transition = 'opacity .5s'; t.style.opacity = 0; setTimeout(function () { t.remove(); }, 600); });
-  }, 6500);
-  document.addEventListener('click', function (e) { var t = e.target.closest('.toast.error'); if (t) t.remove(); });
-
   // ---- hammasini tanlash ----
   var all = document.getElementById('hammasi');
   if (all) all.addEventListener('change', function () { document.querySelectorAll('input[name=tp]').forEach(function (c) { c.checked = all.checked; }); });
@@ -64,15 +57,51 @@
   var BK = 'bild_korilgan';
   function oku(k) { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { return []; } }
   function yoz(k, v) { try { localStorage.setItem(k, JSON.stringify(v.slice(-300))); } catch (e) {} }
-  // key berilsa, bir xil xabar bitta brauzerda faqat bir marta ko'rsatiladi
-  window.bildirish = function (matn, tur, key) {
+  // ---- xabar (toast) dizayni: ikonka, yopish tugmasi va qolgan vaqt chizig'i ----
+  var IKON = {
+    success: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    error: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    warning: '<svg viewBox="0 0 24 24"><path d="M12 7v6.5M12 17.2v.1"/></svg>',
+    info: '<svg viewBox="0 0 24 24"><path d="M12 11v6M12 7.2v.1"/></svg>'
+  };
+  var MUDDAT = { success: 6000, info: 6000, warning: 10000, error: 15000 };
+  window.toastQur = function (el, muddat, yuklanmoqda) {
+    if (el.getAttribute('data-q')) return el;
+    el.setAttribute('data-q', '1');
+    var tur = el.classList.contains('success') ? 'success' : el.classList.contains('error') ? 'error' : el.classList.contains('warning') ? 'warning' : 'info';
+    var matn = el.textContent.trim();
+    el.className = 'toast ' + tur; el.removeAttribute('style'); el.removeAttribute('title');
+    el.innerHTML = '';
+    el.setAttribute('role', tur === 'error' ? 'alert' : 'status');
+    var ic = document.createElement('span'); ic.className = 't-ic' + (yuklanmoqda ? ' spin' : ''); ic.innerHTML = IKON[tur];
+    var m = document.createElement('div'); m.className = 't-m'; m.textContent = matn;
+    var x = document.createElement('button'); x.type = 'button'; x.className = 't-x'; x.setAttribute('aria-label', 'Yopish'); x.innerHTML = '&times;';
+    var yop = function () { if (el.parentNode) { el.style.transition = 'opacity .3s, transform .3s'; el.style.opacity = 0; el.style.transform = 'translateX(20px)'; setTimeout(function () { el.remove(); }, 320); } };
+    x.addEventListener('click', yop); el.yop = yop;
+    el.appendChild(ic); el.appendChild(m); el.appendChild(x);
+    var ms = muddat === undefined ? MUDDAT[tur] : muddat;
+    if (ms > 0) {
+      var bar = document.createElement('i'); bar.className = 't-bar'; bar.style.setProperty('--tm', ms + 'ms'); el.appendChild(bar);
+      bar.addEventListener('animationend', yop);
+    }
+    return el;
+  };
+  function toastlarniQur() { document.querySelectorAll('.toast').forEach(function (t) { window.toastQur(t); }); }
+  toastlarniQur();
+  new MutationObserver(function (list) {
+    list.forEach(function (r) { r.addedNodes.forEach(function (n) { if (n.nodeType === 1) { if (n.classList.contains('toast')) window.toastQur(n); else if (n.querySelectorAll) n.querySelectorAll('.toast').forEach(function (t) { window.toastQur(t); }); } }); });
+  }).observe(document.body, { childList: true, subtree: true });
+
+  // key berilsa, bir xil xabar bitta brauzerda faqat bir marta ko'rsatiladi.
+  // opt: {muddat: ms (0 = o'zi yopilmaydi), yuklanmoqda: true}. Qaytaradi: xabar elementi (yopish uchun el.yop()) yoki false.
+  window.bildirish = function (matn, tur, key, opt) {
+    opt = opt || {};
     if (key) { var k = oku(BK); if (k.indexOf(key) >= 0) return false; k.push(key); yoz(BK, k); }
     var c = document.querySelector('.toasts');
     if (!c) { c = document.createElement('div'); c.className = 'toasts'; document.body.appendChild(c); }
-    var e = document.createElement('div'); e.className = 'toast ' + (tur || ''); e.textContent = matn; e.style.cursor = 'pointer'; e.title = 'Yopish uchun bosing';
-    e.addEventListener('click', function () { e.remove(); }); c.appendChild(e);
-    if (tur !== 'error') setTimeout(function () { e.style.transition = 'opacity .5s'; e.style.opacity = 0; setTimeout(function () { e.remove(); }, 600); }, tur === 'warning' ? 14000 : 10000);
-    return true;
+    var e = document.createElement('div'); e.className = 'toast ' + (tur || 'info'); e.textContent = matn;
+    window.toastQur(e, opt.muddat, opt.yuklanmoqda); c.appendChild(e);
+    return e;
   };
   window.bildirKo = function (key) { var k = oku(BK); if (k.indexOf(key) < 0) { k.push(key); yoz(BK, k); } };
   try { var fl = sessionStorage.getItem('bild_flash'); if (fl) { sessionStorage.removeItem('bild_flash'); window.bildirish(fl, 'success'); } } catch (e) {}
@@ -86,6 +115,33 @@
       }).catch(function () { setTimeout(sora, 30000); });
     })();
   }
+
+  // ---- fayl yuklab olish (Excel / PDF / ZIP): tayyorlanmoqda -> yuklab olindi yoki xato ----
+  function fayloNomi(cd, zaxira) {
+    var m = /filename\*=UTF-8''([^;]+)/i.exec(cd || ''); if (m) { try { return decodeURIComponent(m[1]); } catch (e) {} }
+    m = /filename="?([^";]+)"?/i.exec(cd || ''); return m ? m[1] : zaxira;
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('a[href*="format="], a[href*="/yuklab/"]');
+    if (!a || e.button || e.ctrlKey || e.metaKey || e.shiftKey || !window.fetch || !window.URL || !window.Blob) return;
+    e.preventDefault();
+    if (a.getAttribute('data-band')) return;
+    a.setAttribute('data-band', '1');
+    var nom = a.textContent.replace(/\s+/g, ' ').trim() || 'Fayl';
+    var kutish = window.bildirish('Fayl tayyorlanmoqda: ' + nom + '…', 'info', null, { muddat: 0, yuklanmoqda: true });
+    fetch(a.href, { credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok) { var er = new Error('http'); er.status = r.status; throw er; }
+      var fn = fayloNomi(r.headers.get('Content-Disposition'), 'fayl');
+      return r.blob().then(function (b) { return { b: b, fn: fn }; });
+    }).then(function (x) {
+      var u = URL.createObjectURL(x.b), l = document.createElement('a'); l.href = u; l.download = x.fn; document.body.appendChild(l); l.click(); l.remove();
+      setTimeout(function () { URL.revokeObjectURL(u); }, 20000);
+      window.bildirish('Fayl yuklab olindi: ' + x.fn, 'success');
+    }).catch(function (er) {
+      var m = er && er.status === 403 ? 'Bu faylni yuklab olishga ruxsatingiz yo\'q.' : er && er.status === 404 ? 'Ma\'lumot topilmadi: fayl yaratib bo\'lmadi.' : er && er.status ? 'Server xatosi (' + er.status + '): fayl tayyorlanmadi.' : 'Tarmoq xatosi: fayl yuklab olinmadi. Aloqani tekshirib qayta urinib ko\'ring.';
+      window.bildirish('' + nom + ': ' + m, 'error');
+    }).then(function () { a.removeAttribute('data-band'); if (kutish && kutish.yop) kutish.yop(); });
+  });
 
   // ---- diagramma yordamchilari ----
   window.ranglar = function () {

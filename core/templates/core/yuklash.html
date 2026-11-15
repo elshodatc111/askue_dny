@@ -1,7 +1,7 @@
 {% extends "core/base.html" %}
 {% load uzfmt %}
-{% block title %}Fayl yuklash{% endblock %}
-{% block h1 %}Fayl yuklash{% endblock %}
+{% block title %}Brigada fayl yuklash{% endblock %}
+{% block h1 %}Brigada fayl yuklash{% endblock %}
 {% block h1sub %}CAS dan olingan Excel fayllar{% endblock %}
 {% block content %}
 <div class="grid g3">
@@ -32,7 +32,7 @@
       <div class="muted" style="font-size:12px;margin-top:6px" id="yuk-prog-h">Fayl serverga yuborilmoqda. Yuborish tugaguncha sahifani yopmang; keyin qayta ishlash serverda fonda davom etadi.</div>
     </div>
     <p style="margin-top:18px"><button class="btn" type="submit" id="yuk-btn"><svg class="ic"><use href="#i-upload"/></svg> Yuklash va qayta ishlash</button></p>
-  </form>{% else %}<div class="card"><h3>Fayl yuklash</h3><div class="sub">Sizda fayl yuklash ruxsati yo'q, faqat yuklamalar tarixini ko'rishingiz mumkin.</div></div>{% endif %}
+  </form>{% else %}<div class="card"><h3>Brigada fayl yuklash</h3><div class="sub">Sizda fayl yuklash ruxsati yo'q, faqat yuklamalar tarixini ko'rishingiz mumkin.</div></div>{% endif %}
   <div class="card">
     <h3>Qanday ishlaydi</h3>
     <ol class="muted" style="padding-left:18px;line-height:1.7;margin:8px 0 0">
@@ -89,7 +89,7 @@
         var p = Math.round(ev.loaded * 100 / ev.total); bar.style.width = p + '%'; pr.textContent = p + '% (' + Math.round(ev.loaded / 1048576 * 10) / 10 + ' / ' + Math.round(ev.total / 1048576 * 10) / 10 + ' MB)';
         if (p >= 100) tt.textContent = 'Server qabul qilmoqda…';
       };
-      function xato(m) { yuboryapti = false; btn.disabled = false; tt.textContent = 'Xato'; hh.textContent = m; hh.style.color = 'var(--bad)'; }
+      function xato(m) { yuboryapti = false; btn.disabled = false; tt.textContent = 'Xato'; hh.textContent = m; hh.style.color = 'var(--bad)'; if (window.bildirish) window.bildirish('Fayl yuklanmadi: ' + m, 'error'); }
       x.onload = function () {
         var d = null; try { d = JSON.parse(x.responseText); } catch (er) {}
         if (x.status === 200 && d && d.ok) { yuboryapti = false; tt.textContent = 'Qabul qilindi. Qayta ishlash serverda fonda boshlandi.'; bar.style.width = '100%'; try { sessionStorage.setItem('bild_flash', d.soni + ' ta fayl serverga yuklandi. Qayta ishlash orqa fonda boshlandi, tugagach xabar chiqadi.'); } catch (er) {} setTimeout(function () { location.reload(); }, 600); }

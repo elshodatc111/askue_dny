@@ -56,9 +56,9 @@ def dinamika_fayllari(tur, a, b, ruxsat, tuman_id):
     asos = f"dinamika_{_toza(nom_t) + '_' if nom_t else ''}{sana}"
     if tur == "xlsx":
         resp = eksport.kopchilik_xlsx(elementlar(tuman_id, nom_t), asos + ".xlsx")
-        yield asos + ".xlsx", resp.content, f"📊 Dinamika jadvali (Excel)\n📍 {hudud}\n📅 Joriy sana: {_d(b)}\n{_solishtirma(a)}"
+        yield asos + ".xlsx", resp.content, f"📊 Brigadalar dinamikasi (Excel)\n📍 {hudud}\n📅 Joriy sana: {_d(b)}\n{_solishtirma(a)}"
     else:
-        yield asos + ".pdf", eksport.kopchilik_pdf(elementlar(tuman_id, nom_t)), f"📄 Dinamika jadvali (PDF)\n📍 {hudud}\n📅 Joriy sana: {_d(b)}\n{_solishtirma(a)}"
+        yield asos + ".pdf", eksport.kopchilik_pdf(elementlar(tuman_id, nom_t)), f"📄 Brigadalar dinamikasi (PDF)\n📍 {hudud}\n📅 Joriy sana: {_d(b)}\n{_solishtirma(a)}"
 
 
 def resp_fayllari(tur, a, b):

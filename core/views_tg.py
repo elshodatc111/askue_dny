@@ -176,7 +176,7 @@ def yuborish(request):
         if b not in S.mavjud_sanalar():
             return JsonResponse({"xato": "Bu sana uchun ma'lumot yuklanmagan."}, status=400)
         ruxsat, tid = _tuman_tanla(request.user, P.get("tuman"))
-        sarlavha = f"Dinamika jadvali · {TUR_NOM[tur]} · {b:%d.%m.%Y}"
+        sarlavha = f"Brigadalar dinamikasi · {TUR_NOM[tur]} · {b:%d.%m.%Y}"
         def fayllar():
             return TY.dinamika_fayllari(tur, a, b, ruxsat, tid)
     else:

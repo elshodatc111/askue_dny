@@ -761,7 +761,9 @@ class BrigadalarMenyuTest(TestCase):
             self.assertContains(r, nom)
         self.assertContains(r, "Barcha brigadalar")
         self.assertNotContains(r, 'class="tabs"')  # yuqoridagi tuman tugmalari endi yon menyuda
-        self.assertContains(r, 'class="subnav"')
+        self.assertContains(r, "brig-panel")
+        self.assertNotContains(r, 'class="subnav"')  # yon asosiy menyuga qo'shilmaydi
+        self.assertNotContains(r, '<select name="tuman"')  # tepada ESP tanlash ro'yxati yo'q
         self.assertContains(r, f"?tuman={self.t2.id}")
 
     def test_tuman_filtri(self):
@@ -832,3 +834,36 @@ class TgTugmalarYuqoridaTest(TestCase):
         g = TelegramGuruh.objects.get(chat_id="-1005550001111")
         self.assertEqual(g.nom, "Ikkinchi")
         self.assertContains(r, "baribir qo")
+
+
+class NomlarVaXabarlarTest(TestCase):
+    def setUp(self):
+        self.u = User.objects.create_superuser("admin", password="Admin@12345")
+        self.client.login(username="admin", password="Admin@12345")
+
+    def test_yangi_nomlar(self):
+        h = self.client.get(reverse("bosh")).content.decode()
+        self.assertIn("Brigadalar dinamikasi", h)
+        self.assertIn("Brigada fayl yuklash", h)
+        self.assertNotIn("Dinamika jadvallari", h)
+        self.assertContains(self.client.get(reverse("yuklash")), "<h1>Brigada fayl yuklash")
+        self.assertContains(self.client.get(reverse("dinamika")), "<h1>Brigadalar dinamikasi")
+
+    def test_parol_xabari(self):
+        r = self.client.post(reverse("parol"), {"old_password": "Admin@12345", "new_password1": "Yangi@12345", "new_password2": "Yangi@12345"}, follow=True)
+        self.assertContains(r, "Parol muvaffaqiyatli o")
+        self.client.login(username="admin", password="Yangi@12345")
+        r = self.client.post(reverse("parol"), {"old_password": "xato", "new_password1": "a", "new_password2": "b"})
+        self.assertContains(r, "Parolni o")
+
+    def test_foydalanuvchi_xatosi_xabar_bilan(self):
+        r = self.client.post(reverse("foydalanuvchi_yangi"), {"username": "", "parol": "123456", "rol": "admin"})
+        self.assertContains(r, "Login kiritilmadi.")
+        self.assertContains(r, 'class="toast error"')
+
+    def test_xabar_va_yuklab_olish_skripti(self):
+        h = self.client.get(reverse("bosh")).content.decode()
+        self.assertIn("app.js", h)
+        js = open("core/static/core/js/app.js", encoding="utf-8").read()
+        self.assertIn("toastQur", js)
+        self.assertIn("a[href*=\"format=\"]", js)

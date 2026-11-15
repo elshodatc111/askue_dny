@@ -1,0 +1,136 @@
+diff --git a/core/static/core/css/app.css b/core/static/core/css/app.css
+index 5ca5248..11dd416 100644
+--- a/core/static/core/css/app.css
++++ b/core/static/core/css/app.css
+@@ -29,10 +29,23 @@ a:hover { text-decoration: underline; }
+ .nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin: 2px 0; border-radius: 10px; color: var(--side-text); text-decoration: none; transition: background .2s, color .2s, transform .2s; }
+ .nav a:hover { background: rgba(255,255,255,.07); color: #fff; transform: translateX(2px); }
+ .nav a.on { background: linear-gradient(90deg, rgba(79,70,229,.9), rgba(124,58,237,.75)); color: #fff; box-shadow: 0 6px 16px rgba(79,70,229,.35); }
+-.nav .subnav { margin: 2px 0 6px 22px; padding-left: 10px; border-left: 1px solid rgba(255,255,255,.12); }
+-.nav .subnav a { padding: 6px 10px; margin: 1px 0; font-size: 12.5px; gap: 6px; justify-content: space-between; border-radius: 8px; }
+-.nav .subnav a .n { font-size: 10.5px; opacity: .65; background: rgba(255,255,255,.09); border-radius: 99px; padding: 1px 7px; }
+-.nav .subnav a.on { box-shadow: none; }
++.brig-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 18px; align-items: start; }
++.brig-panel { position: sticky; top: 84px; max-height: calc(100vh - 110px); overflow-y: auto; padding: 10px; }
++.brig-panel h4 { margin: 4px 8px 8px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 600; }
++.brig-panel a { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; margin: 2px 0; border-radius: 10px; color: var(--text); font-weight: 600; font-size: 13px; text-decoration: none; transition: background .2s, transform .2s; }
++.brig-panel a:hover { background: var(--info-bg); transform: translateX(2px); text-decoration: none; }
++.brig-panel a .n { font-size: 11px; font-weight: 600; background: var(--line); color: var(--muted); border-radius: 99px; padding: 1px 8px; }
++.brig-panel a.on { background: var(--brand); color: #fff; box-shadow: 0 6px 16px rgba(79,70,229,.3); }
++.brig-panel a.on .n { background: rgba(255,255,255,.22); color: #fff; }
++.brig-panel hr { border: 0; border-top: 1px solid var(--line); margin: 8px 4px; }
++.brig-gr { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
++.brig-gr h3 { margin: 0; }
++@media (max-width: 900px) {
++  .brig-layout { grid-template-columns: 1fr; }
++  .brig-panel { position: static; max-height: none; display: flex; flex-wrap: wrap; gap: 6px; }
++  .brig-panel h4, .brig-panel hr { display: none; }
++  .brig-panel a { margin: 0; padding: 7px 12px; }
++}
+ .side-foot { padding: 14px 16px; border-top: 1px solid rgba(255,255,255,.08); font-size: 12.5px; }
+ .side-foot .u { color: #fff; font-weight: 600; }
+ .side-foot .r { color: #94a3b8; font-size: 11.5px; }
+diff --git a/core/templates/core/base.html b/core/templates/core/base.html
+index f1c91fa..356c2ce 100644
+--- a/core/templates/core/base.html
++++ b/core/templates/core/base.html
+@@ -56,10 +56,7 @@
+       {% if rx.yuklash_korish %}<a href="{% url 'yuklash' %}" class="{% if p == 'yuklash' %}on{% endif %}"><svg class="ic"><use href="#i-upload"/></svg> Brigada fayl yuklash</a>{% endif %}
+       {% if rx.resp_yuklash_korish %}<a href="{% url 'resp_yuklash' %}" class="{% if p == 'resp_yuklash' %}on{% endif %}"><svg class="ic"><use href="#i-upload"/></svg> Respublika PDF yuklash</a>{% endif %}
+       {% if rx.brigadalar_korish %}<a href="{% url 'brigadalar' %}" class="{% if p == 'brigadalar' or p == 'brigada_tahrir' %}on{% endif %}"><svg class="ic"><use href="#i-team"/></svg> Brigadalar</a>
+-      {% if brig_menyu %}<div class="subnav">
+-        <a href="{% url 'brigadalar' %}" class="{% if p == 'brigadalar' and not brig_menyu.tanlangan %}on{% endif %}">Barcha brigadalar <span class="n">{{ brig_menyu.jami }}</span></a>
+-        {% for t in brig_menyu.tumanlar %}<a href="{% url 'brigadalar' %}?tuman={{ t.id }}" class="{% if brig_menyu.tanlangan == t.id %}on{% endif %}">{{ t.korsat }} <span class="n">{{ t.brig_soni }}</span></a>{% endfor %}
+-      </div>{% endif %}{% endif %}
++{% endif %}
+       {% if rx.tp_kochirish_korish %}<a href="{% url 'tp_kochirish' %}" class="{% if p == 'tp_kochirish' %}on{% endif %}"><svg class="ic"><use href="#i-move"/></svg> TP larni ko'chirish</a>{% endif %}
+       {% if rx.foydalanuvchilar_korish %}<a href="{% url 'foydalanuvchilar' %}" class="{% if p == 'foydalanuvchilar' or p == 'foydalanuvchi_tahrir' or p == 'foydalanuvchi_yangi' %}on{% endif %}"><svg class="ic"><use href="#i-users"/></svg> Foydalanuvchilar</a>{% endif %}
+       {% if rx.sozlamalar_korish %}<a href="{% url 'sozlamalar' %}" class="{% if p == 'sozlamalar' %}on{% endif %}"><svg class="ic"><use href="#i-gear"/></svg> Sozlamalar</a>{% endif %}
+diff --git a/core/templates/core/brigadalar.html b/core/templates/core/brigadalar.html
+index 7ad29d4..4251bc4 100644
+--- a/core/templates/core/brigadalar.html
++++ b/core/templates/core/brigadalar.html
+@@ -2,28 +2,34 @@
+ {% block title %}Brigadalar{% endblock %}
+ {% block h1 %}Brigadalar{% endblock %}
+ {% block h1sub %}{% if tuman %}{{ tuman.korsat }}{% else %}Barcha brigadalar{% endif %} · {{ jami }} ta brigada{% endblock %}
+-{% block topact %}{% if rx.brigadalar_yaratish %}
+-  {% if tuman %}<form method="post" action="{% url 'brigada_yangi' tuman.id %}">{% csrf_token %}<button class="btn sm" type="submit">+ Yangi brigada</button></form>
+-  {% elif tumanlar %}<form method="post" class="flex" style="gap:6px" onsubmit="this.action='/brigadalar/yangi/'+this.tuman.value+'/'">{% csrf_token %}
+-    <select name="tuman" style="max-width:150px">{% for t in tumanlar %}<option value="{{ t.id }}">{{ t.korsat }}</option>{% endfor %}</select>
+-    <button class="btn sm" type="submit">+ Yangi brigada</button></form>{% endif %}
+-{% endif %}{% endblock %}
++{% block topact %}{% if tuman and rx.brigadalar_yaratish %}<form method="post" action="{% url 'brigada_yangi' tuman.id %}">{% csrf_token %}<button class="btn sm" type="submit">+ Yangi brigada</button></form>{% endif %}{% endblock %}
+ {% block content %}
+-{% if yoq %}
+-<div class="card" style="margin-bottom:16px;border-left:4px solid var(--warn)">
+-  <b>{{ yoq }} ta TP brigadaga biriktirilmagan.</b> {% if rx.tp_kochirish_korish %}<a href="{% url 'tp_kochirish' %}{% if tuman %}?tuman={{ tuman.id }}&manba=yoq{% endif %}">Biriktirish ›</a>{% endif %}
+-</div>
+-{% endif %}
+-{% for g in guruhlar %}
+-  {% if not tuman %}<h3 style="margin:{% if forloop.first %}0{% else %}22px{% endif %} 0 10px">{{ g.tuman.korsat }} <span class="muted" style="font-weight:500;font-size:13px">· {{ g.royxat|length }} ta brigada</span></h3>{% endif %}
+-  <div class="grid g2">
+-    {% for b in g.royxat %}
+-    <div class="card brig" style="animation-delay:{{ forloop.counter0|add:1 }}0ms">
+-      <div class="flex"><h3 class="grow">{{ b.nom }}</h3><span class="chip">{{ b.tp_soni }} ta TP</span>{% if rx.brigadalar_tahrirlash %}<a class="btn sec sm" href="{% url 'brigada_tahrir' b.id %}">Tahrirlash</a>{% endif %}</div>
+-      <div class="chips" style="margin-top:10px">{% for h in b.hodimlar.all %}<span class="chip">{{ h.ism }}</span>{% empty %}<span class="muted">Hodim biriktirilmagan</span>{% endfor %}</div>
+-      {% if b.telefon %}<div class="muted" style="margin-top:8px;font-size:12px">Tel: {{ b.telefon }}</div>{% endif %}
++<div class="brig-layout">
++  <aside class="card brig-panel" aria-label="ESP lar">
++    <h4>ESP lar</h4>
++    <a href="{% url 'brigadalar' %}" class="{% if not brig_menyu.tanlangan %}on{% endif %}">Barcha brigadalar <span class="n">{{ brig_menyu.jami }}</span></a>
++    <hr>
++    {% for t in brig_menyu.tumanlar %}<a href="{% url 'brigadalar' %}?tuman={{ t.id }}" class="{% if brig_menyu.tanlangan == t.id %}on{% endif %}">{{ t.korsat }} <span class="n">{{ t.brig_soni }}</span></a>{% endfor %}
++  </aside>
++  <div>
++    {% if yoq %}
++    <div class="card" style="margin-bottom:16px;border-left:4px solid var(--warn)">
++      <b>{{ yoq }} ta TP brigadaga biriktirilmagan.</b> {% if rx.tp_kochirish_korish %}<a href="{% url 'tp_kochirish' %}{% if tuman %}?tuman={{ tuman.id }}&manba=yoq{% endif %}">Biriktirish ›</a>{% endif %}
+     </div>
+-    {% endfor %}
++    {% endif %}
++    {% for g in guruhlar %}
++      {% if not tuman %}<div class="brig-gr" style="margin-top:{% if forloop.first %}0{% else %}22px{% endif %}"><h3>{{ g.tuman.korsat }} <span class="muted" style="font-weight:500;font-size:13px">· {{ g.royxat|length }} ta brigada</span></h3>
++        {% if rx.brigadalar_yaratish %}<form method="post" action="{% url 'brigada_yangi' g.tuman.id %}">{% csrf_token %}<button class="btn sec sm" type="submit" title="{{ g.tuman.korsat }} ga yangi brigada qo'shish">+ Yangi brigada</button></form>{% endif %}</div>{% endif %}
++      <div class="grid g2">
++        {% for b in g.royxat %}
++        <div class="card brig" style="animation-delay:{{ forloop.counter0|add:1 }}0ms">
++          <div class="flex"><h3 class="grow">{{ b.nom }}</h3><span class="chip">{{ b.tp_soni }} ta TP</span>{% if rx.brigadalar_tahrirlash %}<a class="btn sec sm" href="{% url 'brigada_tahrir' b.id %}">Tahrirlash</a>{% endif %}</div>
++          <div class="chips" style="margin-top:10px">{% for h in b.hodimlar.all %}<span class="chip">{{ h.ism }}</span>{% empty %}<span class="muted">Hodim biriktirilmagan</span>{% endfor %}</div>
++          {% if b.telefon %}<div class="muted" style="margin-top:8px;font-size:12px">Tel: {{ b.telefon }}</div>{% endif %}
++        </div>
++        {% endfor %}
++      </div>
++    {% empty %}<div class="card">{% if tuman %}Bu ESP da brigada yo'q.{% else %}Brigada yo'q.{% endif %} Hududiy tuzilma faylini yuklang yoki yangi brigada yarating.</div>{% endfor %}
+   </div>
+-{% empty %}<div class="card">{% if tuman %}Bu tumanda brigada yo'q.{% else %}Brigada yo'q.{% endif %} Hududiy tuzilma faylini yuklang yoki yangi brigada yarating.</div>{% endfor %}
++</div>
+ {% endblock %}
+diff --git a/core/tests.py b/core/tests.py
+index c683ce5..c097772 100644
+--- a/core/tests.py
++++ b/core/tests.py
+@@ -761,7 +761,9 @@ class BrigadalarMenyuTest(TestCase):
+             self.assertContains(r, nom)
+         self.assertContains(r, "Barcha brigadalar")
+         self.assertNotContains(r, 'class="tabs"')  # yuqoridagi tuman tugmalari endi yon menyuda
+-        self.assertContains(r, 'class="subnav"')
++        self.assertContains(r, "brig-panel")
++        self.assertNotContains(r, 'class="subnav"')  # yon asosiy menyuga qo'shilmaydi
++        self.assertNotContains(r, '<select name="tuman"')  # tepada ESP tanlash ro'yxati yo'q
+         self.assertContains(r, f"?tuman={self.t2.id}")
+ 
+     def test_tuman_filtri(self):
+diff --git a/core/views.py b/core/views.py
+index d27982a..f905ff6 100644
+--- a/core/views.py
++++ b/core/views.py
+@@ -584,7 +584,7 @@ def brigada_tahrir(request, pk):
+         return redirect(f"/brigadalar/?tuman={b.tuman_id}")
+     matn = "\n".join("; ".join(x for x in [h.ism, h.pinfl, h.telefon] if x or True).rstrip("; ") for h in b.hodimlar.all())
+     boshqalar = Brigada.objects.filter(tuman=b.tuman).exclude(pk=b.pk).order_by("raqam")
+-    return render(request, "core/brigada_tahrir.html", {"b": b, "matn": matn, "boshqalar": boshqalar, "tp_soni": b.tplar.count(), "brig_menyu": _brig_menyu(request.user, b.tuman_id)})
++    return render(request, "core/brigada_tahrir.html", {"b": b, "matn": matn, "boshqalar": boshqalar, "tp_soni": b.tplar.count()})
+ 
+ 
+ @ruxsat_kerak("brigadalar.ochirish")

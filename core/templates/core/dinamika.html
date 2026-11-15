@@ -1,15 +1,15 @@
 {% extends "core/base.html" %}
 {% load uzfmt %}
-{% block title %}Dinamika{% endblock %}
-{% block h1 %}Dinamika jadvali{% endblock %}
+{% block title %}Brigadalar dinamikasi{% endblock %}
+{% block h1 %}Brigadalar dinamikasi{% endblock %}
 {% block h1sub %}{% if b %}{{ b|kun }}{% if a %} sanasi {{ a|kun }} bilan solishtirilmoqda{% else %} (solishtirish tanlanmagan){% endif %}{% endif %}{% endblock %}
 {% block topact %}{% if jadval %}{% if rx.dinamika_eksport or rx.dinamika_telegram %}<div class="flex top-act">
   {% if rx.dinamika_eksport %}<a class="btn sec sm" href="?{{ params }}&format=xlsx" title="Ikkala jadval bitta Excel faylida (2 varaq){% if tuman %}, brigadalar kesimida{% else %}, tumanlar kesimida{% endif %}"><svg class="ic"><use href="#i-down"/></svg> Excel</a>
   <a class="btn sec sm" href="?{{ params }}&format=pdf" title="Ikkala jadval bitta PDF da{% if tuman %} (brigadalar kesimida){% else %} (tumanlar kesimida){% endif %}"><svg class="ic"><use href="#i-pdf"/></svg> PDF</a>
   {% if not tuman and tumanlar|length > 1 %}<a class="btn sec sm" href="?{{ params }}&format=zip" title="Har bir tuman uchun brigadalar kesimidagi dinamika alohida PDF, ZIP arxivda"><svg class="ic"><use href="#i-down"/></svg> Tumanlar · brigadalar (ZIP)</a>{% endif %}{% endif %}
   {% if rx.dinamika_telegram %}
-  <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="xlsx" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Dinamika jadvali · Excel{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="Excel faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Excel</span></button>
-  <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="pdf" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Dinamika jadvali · PDF{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="PDF faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · PDF</span></button>
+  <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="xlsx" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Brigadalar dinamikasi · Excel{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="Excel faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Excel</span></button>
+  <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="pdf" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Brigadalar dinamikasi · PDF{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="PDF faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · PDF</span></button>
   {% if not tuman and tumanlar|length > 1 %}<button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="tumanlar" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="" data-nom="Tumanlar kesimida (brigadalar) · har bir tuman alohida PDF · {{ b|kun }}" title="Har bir tuman uchun brigadalar kesimidagi dinamikani alohida PDF qilib Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Tumanlar</span></button>{% endif %}
   {% endif %}
 </div>{% endif %}{% endif %}{% endblock %}

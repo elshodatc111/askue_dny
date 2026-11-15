@@ -1,0 +1,465 @@
+diff --git a/core/permissions.py b/core/permissions.py
+index 0f62d7e..963647b 100644
+--- a/core/permissions.py
++++ b/core/permissions.py
+@@ -17,11 +17,11 @@ from .models import Profil
+ # (kod, nomi, [(amal, nomi)], faqat_admin)
+ BOLIMLAR = [
+     ("bosh", "Bosh panel", [("korish", "Ko'rish")], False),
+-    ("dinamika", "Dinamika jadvallari", [("korish", "Ko'rish"), ("eksport", "Excel / PDF yuklab olish"), ("telegram", "Telegram guruhlarga yuborish")], False),
++    ("dinamika", "Brigadalar dinamikasi", [("korish", "Ko'rish"), ("eksport", "Excel / PDF yuklab olish"), ("telegram", "Telegram guruhlarga yuborish")], False),
+     ("resp_dinamika", "Respublika dinamikasi", [("korish", "Ko'rish"), ("eksport", "Excel / PDF yuklab olish"), ("telegram", "Telegram guruhlarga yuborish"), ("kunlar", "Kunlarni belgilash (ish / dam olish)")], False),
+     ("royxat", "Nomma-nom ro'yxat", [("korish", "Ko'rish"), ("eksport", "Excelga yuklab olish")], False),
+     ("xarita", "Xarita", [("korish", "Ko'rish")], False),
+-    ("yuklash", "Fayl yuklash", [("korish", "Yuklamalar ro'yxatini ko'rish"), ("yuklash", "Fayl yuklash"), ("ochirish", "Yuklamani o'chirish")], False),
++    ("yuklash", "Brigada fayl yuklash", [("korish", "Yuklamalar ro'yxatini ko'rish"), ("yuklash", "Fayl yuklash"), ("ochirish", "Yuklamani o'chirish")], False),
+     ("resp_yuklash", "Respublika: fayl yuklash", [("korish", "Sahifani ko'rish"), ("yuklash", "PDF yuklash")], False),
+     ("resp_fayllar", "Respublika: yuklangan PDF lar (Respublika PDF yuklash sahifasida)", [("yuklab", "Asl PDF ni yuklab olish"), ("ochirish", "Faylni o'chirish")], False),
+     ("brigadalar", "Brigadalar", [("korish", "Ko'rish"), ("yaratish", "Yangi brigada qo'shish"), ("tahrirlash", "Tahrirlash"), ("ochirish", "O'chirish")], False),
+diff --git a/core/services/tg_yuborish.py b/core/services/tg_yuborish.py
+index 9ba104b..833d52b 100644
+--- a/core/services/tg_yuborish.py
++++ b/core/services/tg_yuborish.py
+@@ -56,9 +56,9 @@ def dinamika_fayllari(tur, a, b, ruxsat, tuman_id):
+     asos = f"dinamika_{_toza(nom_t) + '_' if nom_t else ''}{sana}"
+     if tur == "xlsx":
+         resp = eksport.kopchilik_xlsx(elementlar(tuman_id, nom_t), asos + ".xlsx")
+-        yield asos + ".xlsx", resp.content, f"📊 Dinamika jadvali (Excel)\n📍 {hudud}\n📅 Joriy sana: {_d(b)}\n{_solishtirma(a)}"
++        yield asos + ".xlsx", resp.content, f"📊 Brigadalar dinamikasi (Excel)\n📍 {hudud}\n📅 Joriy sana: {_d(b)}\n{_solishtirma(a)}"
+     else:
+-        yield asos + ".pdf", eksport.kopchilik_pdf(elementlar(tuman_id, nom_t)), f"📄 Dinamika jadvali (PDF)\n📍 {hudud}\n📅 Joriy sana: {_d(b)}\n{_solishtirma(a)}"
++        yield asos + ".pdf", eksport.kopchilik_pdf(elementlar(tuman_id, nom_t)), f"📄 Brigadalar dinamikasi (PDF)\n📍 {hudud}\n📅 Joriy sana: {_d(b)}\n{_solishtirma(a)}"
+ 
+ 
+ def resp_fayllari(tur, a, b):
+diff --git a/core/static/core/css/app.css b/core/static/core/css/app.css
+index 0c47037..5ca5248 100644
+--- a/core/static/core/css/app.css
++++ b/core/static/core/css/app.css
+@@ -145,9 +145,26 @@ tr.jami td { background: #fef3c7 !important; font-weight: 800; border-bottom: 2p
+ .legend-row i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+ 
+ /* xabarlar */
+-.toasts { position: fixed; top: 16px; right: 16px; z-index: 100; display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
+-.toast { padding: 12px 16px; border-radius: 12px; background: var(--card); border-left: 4px solid var(--brand); box-shadow: var(--shadow); animation: slideIn .35s ease both; }
+-.toast.success { border-color: var(--good); } .toast.error { border-color: var(--bad); } .toast.warning { border-color: var(--warn); }
++.toasts { position: fixed; top: 16px; right: 16px; z-index: 100; display: flex; flex-direction: column; gap: 10px; width: min(420px, calc(100vw - 24px)); }
++.toast { position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: 12px; padding: 14px 14px 16px 14px; border-radius: 14px; border: 1px solid var(--tb); background: var(--tbg); color: var(--tc); box-shadow: 0 10px 30px rgba(15,23,42,.14); animation: slideIn .35s ease both; font-size: 13.5px; line-height: 1.45; --tb: #bfdbfe; --tbg: #eff6ff; --tc: #1e3a8a; --ti: #3b82f6; }
++.toast.success { --tb: #a7f3d0; --tbg: #ecfdf5; --tc: #065f46; --ti: #10b981; }
++.toast.error { --tb: #fecaca; --tbg: #fef2f2; --tc: #991b1b; --ti: #ef4444; }
++.toast.warning { --tb: #fde68a; --tbg: #fffbeb; --tc: #92400e; --ti: #f59e0b; }
++[data-theme="dark"] .toast { --tb: #1e3a8a; --tbg: #0f1b3d; --tc: #bfdbfe; }
++[data-theme="dark"] .toast.success { --tb: #065f46; --tbg: #052e22; --tc: #a7f3d0; }
++[data-theme="dark"] .toast.error { --tb: #7f1d1d; --tbg: #2a0f12; --tc: #fecaca; }
++[data-theme="dark"] .toast.warning { --tb: #78350f; --tbg: #2a1d07; --tc: #fde68a; }
++.toast .t-ic { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--ti); color: #fff; display: grid; place-items: center; margin-top: 1px; }
++.toast .t-ic svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
++.toast .t-ic.spin { background: transparent; border: 3px solid var(--ti); border-right-color: transparent; animation: tgspin .8s linear infinite; width: 22px; height: 22px; }
++.toast .t-ic.spin svg { display: none; }
++.toast .t-m { flex: 1; min-width: 0; word-break: break-word; font-weight: 500; white-space: pre-line; }
++.toast .t-x { flex: none; background: transparent; border: 0; color: inherit; opacity: .55; cursor: pointer; font-size: 20px; line-height: 1; padding: 0 2px; font-family: inherit; }
++.toast .t-x:hover { opacity: 1; }
++.toast .t-bar { position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; background: var(--ti); opacity: .55; transform-origin: left; animation: toastbar var(--tm, 6s) linear forwards; }
++.toast:hover .t-bar { animation-play-state: paused; }
++@keyframes toastbar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
++@keyframes tgspin { to { transform: rotate(360deg); } }
+ 
+ /* yuklash */
+ .drop { display: block; border: 2px dashed var(--line); border-radius: 16px; padding: 34px 20px; text-align: center; transition: all .25s; background: var(--card2); cursor: pointer; }
+diff --git a/core/static/core/js/app.js b/core/static/core/js/app.js
+index 34b0c09..03cf986 100644
+--- a/core/static/core/js/app.js
++++ b/core/static/core/js/app.js
+@@ -49,13 +49,6 @@
+     document.querySelectorAll('.bar i[data-w]').forEach(function (i) { i.style.width = i.getAttribute('data-w') + '%'; });
+   }, 150);
+ 
+-  // ---- xabarlar avtomatik yo'qolishi ----
+-  // (xato xabarlari yo'qolmaydi, bosilganda yopiladi - foydalanuvchi o'qib ulgurishi uchun)
+-  setTimeout(function () {
+-    document.querySelectorAll('.toast:not(.error)').forEach(function (t) { t.style.transition = 'opacity .5s'; t.style.opacity = 0; setTimeout(function () { t.remove(); }, 600); });
+-  }, 6500);
+-  document.addEventListener('click', function (e) { var t = e.target.closest('.toast.error'); if (t) t.remove(); });
+-
+   // ---- hammasini tanlash ----
+   var all = document.getElementById('hammasi');
+   if (all) all.addEventListener('change', function () { document.querySelectorAll('input[name=tp]').forEach(function (c) { c.checked = all.checked; }); });
+@@ -64,15 +57,51 @@
+   var BK = 'bild_korilgan';
+   function oku(k) { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { return []; } }
+   function yoz(k, v) { try { localStorage.setItem(k, JSON.stringify(v.slice(-300))); } catch (e) {} }
+-  // key berilsa, bir xil xabar bitta brauzerda faqat bir marta ko'rsatiladi
+-  window.bildirish = function (matn, tur, key) {
++  // ---- xabar (toast) dizayni: ikonka, yopish tugmasi va qolgan vaqt chizig'i ----
++  var IKON = {
++    success: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
++    error: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
++    warning: '<svg viewBox="0 0 24 24"><path d="M12 7v6.5M12 17.2v.1"/></svg>',
++    info: '<svg viewBox="0 0 24 24"><path d="M12 11v6M12 7.2v.1"/></svg>'
++  };
++  var MUDDAT = { success: 6000, info: 6000, warning: 10000, error: 15000 };
++  window.toastQur = function (el, muddat, yuklanmoqda) {
++    if (el.getAttribute('data-q')) return el;
++    el.setAttribute('data-q', '1');
++    var tur = el.classList.contains('success') ? 'success' : el.classList.contains('error') ? 'error' : el.classList.contains('warning') ? 'warning' : 'info';
++    var matn = el.textContent.trim();
++    el.className = 'toast ' + tur; el.removeAttribute('style'); el.removeAttribute('title');
++    el.innerHTML = '';
++    el.setAttribute('role', tur === 'error' ? 'alert' : 'status');
++    var ic = document.createElement('span'); ic.className = 't-ic' + (yuklanmoqda ? ' spin' : ''); ic.innerHTML = IKON[tur];
++    var m = document.createElement('div'); m.className = 't-m'; m.textContent = matn;
++    var x = document.createElement('button'); x.type = 'button'; x.className = 't-x'; x.setAttribute('aria-label', 'Yopish'); x.innerHTML = '&times;';
++    var yop = function () { if (el.parentNode) { el.style.transition = 'opacity .3s, transform .3s'; el.style.opacity = 0; el.style.transform = 'translateX(20px)'; setTimeout(function () { el.remove(); }, 320); } };
++    x.addEventListener('click', yop); el.yop = yop;
++    el.appendChild(ic); el.appendChild(m); el.appendChild(x);
++    var ms = muddat === undefined ? MUDDAT[tur] : muddat;
++    if (ms > 0) {
++      var bar = document.createElement('i'); bar.className = 't-bar'; bar.style.setProperty('--tm', ms + 'ms'); el.appendChild(bar);
++      bar.addEventListener('animationend', yop);
++    }
++    return el;
++  };
++  function toastlarniQur() { document.querySelectorAll('.toast').forEach(function (t) { window.toastQur(t); }); }
++  toastlarniQur();
++  new MutationObserver(function (list) {
++    list.forEach(function (r) { r.addedNodes.forEach(function (n) { if (n.nodeType === 1) { if (n.classList.contains('toast')) window.toastQur(n); else if (n.querySelectorAll) n.querySelectorAll('.toast').forEach(function (t) { window.toastQur(t); }); } }); });
++  }).observe(document.body, { childList: true, subtree: true });
++
++  // key berilsa, bir xil xabar bitta brauzerda faqat bir marta ko'rsatiladi.
++  // opt: {muddat: ms (0 = o'zi yopilmaydi), yuklanmoqda: true}. Qaytaradi: xabar elementi (yopish uchun el.yop()) yoki false.
++  window.bildirish = function (matn, tur, key, opt) {
++    opt = opt || {};
+     if (key) { var k = oku(BK); if (k.indexOf(key) >= 0) return false; k.push(key); yoz(BK, k); }
+     var c = document.querySelector('.toasts');
+     if (!c) { c = document.createElement('div'); c.className = 'toasts'; document.body.appendChild(c); }
+-    var e = document.createElement('div'); e.className = 'toast ' + (tur || ''); e.textContent = matn; e.style.cursor = 'pointer'; e.title = 'Yopish uchun bosing';
+-    e.addEventListener('click', function () { e.remove(); }); c.appendChild(e);
+-    if (tur !== 'error') setTimeout(function () { e.style.transition = 'opacity .5s'; e.style.opacity = 0; setTimeout(function () { e.remove(); }, 600); }, tur === 'warning' ? 14000 : 10000);
+-    return true;
++    var e = document.createElement('div'); e.className = 'toast ' + (tur || 'info'); e.textContent = matn;
++    window.toastQur(e, opt.muddat, opt.yuklanmoqda); c.appendChild(e);
++    return e;
+   };
+   window.bildirKo = function (key) { var k = oku(BK); if (k.indexOf(key) < 0) { k.push(key); yoz(BK, k); } };
+   try { var fl = sessionStorage.getItem('bild_flash'); if (fl) { sessionStorage.removeItem('bild_flash'); window.bildirish(fl, 'success'); } } catch (e) {}
+@@ -87,6 +116,33 @@
+     })();
+   }
+ 
++  // ---- fayl yuklab olish (Excel / PDF / ZIP): tayyorlanmoqda -> yuklab olindi yoki xato ----
++  function fayloNomi(cd, zaxira) {
++    var m = /filename\*=UTF-8''([^;]+)/i.exec(cd || ''); if (m) { try { return decodeURIComponent(m[1]); } catch (e) {} }
++    m = /filename="?([^";]+)"?/i.exec(cd || ''); return m ? m[1] : zaxira;
++  }
++  document.addEventListener('click', function (e) {
++    var a = e.target.closest('a[href*="format="], a[href*="/yuklab/"]');
++    if (!a || e.button || e.ctrlKey || e.metaKey || e.shiftKey || !window.fetch || !window.URL || !window.Blob) return;
++    e.preventDefault();
++    if (a.getAttribute('data-band')) return;
++    a.setAttribute('data-band', '1');
++    var nom = a.textContent.replace(/\s+/g, ' ').trim() || 'Fayl';
++    var kutish = window.bildirish('Fayl tayyorlanmoqda: ' + nom + '…', 'info', null, { muddat: 0, yuklanmoqda: true });
++    fetch(a.href, { credentials: 'same-origin' }).then(function (r) {
++      if (!r.ok) { var er = new Error('http'); er.status = r.status; throw er; }
++      var fn = fayloNomi(r.headers.get('Content-Disposition'), 'fayl');
++      return r.blob().then(function (b) { return { b: b, fn: fn }; });
++    }).then(function (x) {
++      var u = URL.createObjectURL(x.b), l = document.createElement('a'); l.href = u; l.download = x.fn; document.body.appendChild(l); l.click(); l.remove();
++      setTimeout(function () { URL.revokeObjectURL(u); }, 20000);
++      window.bildirish('Fayl yuklab olindi: ' + x.fn, 'success');
++    }).catch(function (er) {
++      var m = er && er.status === 403 ? 'Bu faylni yuklab olishga ruxsatingiz yo\'q.' : er && er.status === 404 ? 'Ma\'lumot topilmadi: fayl yaratib bo\'lmadi.' : er && er.status ? 'Server xatosi (' + er.status + '): fayl tayyorlanmadi.' : 'Tarmoq xatosi: fayl yuklab olinmadi. Aloqani tekshirib qayta urinib ko\'ring.';
++      window.bildirish('' + nom + ': ' + m, 'error');
++    }).then(function () { a.removeAttribute('data-band'); if (kutish && kutish.yop) kutish.yop(); });
++  });
++
+   // ---- diagramma yordamchilari ----
+   window.ranglar = function () {
+     var cs = getComputedStyle(root);
+diff --git a/core/templates/core/_tg_modal.html b/core/templates/core/_tg_modal.html
+index 7a9e9d9..c1b515c 100644
+--- a/core/templates/core/_tg_modal.html
++++ b/core/templates/core/_tg_modal.html
+@@ -94,9 +94,9 @@
+         }
+         yuklanish(btn, false); try { sessionStorage.removeItem(kalit(btn)); } catch (e) {}
+         var tk = 't' + id;
+-        if (d.holat === 'tayyor') toast('✅ Telegramga yuborildi: ' + d.sarlavha + ' (' + d.yuborildi + ' ta xabar).', 'success', tk);
+-        else if (d.holat === 'qisman') toast('⚠️ Telegramga qisman yuborildi (' + d.yuborildi + '/' + d.jami + '). Xato: ' + d.xabar.split('\n')[0], 'warning', tk);
+-        else toast('❌ Telegramga yuborib bo\'lmadi: ' + (d.xabar || 'noma\'lum xato').split('\n')[0], 'error', tk);
++        if (d.holat === 'tayyor') toast('Telegramga yuborildi: ' + d.sarlavha + ' (' + d.yuborildi + ' ta xabar).', 'success', tk);
++        else if (d.holat === 'qisman') toast('Telegramga qisman yuborildi (' + d.yuborildi + '/' + d.jami + '). Xato: ' + d.xabar.split('\n')[0], 'warning', tk);
++        else toast('Telegramga yuborib bo\'lmadi: ' + (d.xabar || 'noma\'lum xato').split('\n')[0], 'error', tk);
+       }).catch(function () {
+         if (++xatolar < 5) { setTimeout(sora, 4000); return; }
+         yuklanish(btn, false); try { sessionStorage.removeItem(kalit(btn)); } catch (e) {}
+diff --git a/core/templates/core/base.html b/core/templates/core/base.html
+index 8e6772e..f1c91fa 100644
+--- a/core/templates/core/base.html
++++ b/core/templates/core/base.html
+@@ -47,13 +47,13 @@
+       {% with p=request.resolver_match.url_name %}
+       <h6>Tahlil</h6>
+       {% if rx.bosh_korish %}<a href="{% url 'bosh' %}" class="{% if p == 'bosh' %}on{% endif %}"><svg class="ic"><use href="#i-home"/></svg> Bosh panel</a>{% endif %}
+-      {% if rx.dinamika_korish %}<a href="{% url 'dinamika' %}" class="{% if p == 'dinamika' %}on{% endif %}"><svg class="ic"><use href="#i-chart"/></svg> Dinamika jadvallari</a>{% endif %}
++      {% if rx.dinamika_korish %}<a href="{% url 'dinamika' %}" class="{% if p == 'dinamika' %}on{% endif %}"><svg class="ic"><use href="#i-chart"/></svg> Brigadalar dinamikasi</a>{% endif %}
+       {% if rx.resp_dinamika_korish %}<a href="{% url 'resp_dinamika' %}" class="{% if p == 'resp_dinamika' %}on{% endif %}"><svg class="ic"><use href="#i-globe"/></svg> Respublika dinamikasi</a>{% endif %}
+       {% if rx.royxat_korish %}<a href="{% url 'royxat' %}" class="{% if p == 'royxat' %}on{% endif %}"><svg class="ic"><use href="#i-list"/></svg> Nomma-nom ro'yxat</a>{% endif %}
+       {% if rx.xarita_korish %}<a href="{% url 'xarita' %}" class="{% if p == 'xarita' %}on{% endif %}"><svg class="ic"><use href="#i-map"/></svg> Xarita</a>{% endif %}
+       {% if boshqaruv_bor %}
+       <h6>Boshqaruv</h6>
+-      {% if rx.yuklash_korish %}<a href="{% url 'yuklash' %}" class="{% if p == 'yuklash' %}on{% endif %}"><svg class="ic"><use href="#i-upload"/></svg> Fayl yuklash</a>{% endif %}
++      {% if rx.yuklash_korish %}<a href="{% url 'yuklash' %}" class="{% if p == 'yuklash' %}on{% endif %}"><svg class="ic"><use href="#i-upload"/></svg> Brigada fayl yuklash</a>{% endif %}
+       {% if rx.resp_yuklash_korish %}<a href="{% url 'resp_yuklash' %}" class="{% if p == 'resp_yuklash' %}on{% endif %}"><svg class="ic"><use href="#i-upload"/></svg> Respublika PDF yuklash</a>{% endif %}
+       {% if rx.brigadalar_korish %}<a href="{% url 'brigadalar' %}" class="{% if p == 'brigadalar' or p == 'brigada_tahrir' %}on{% endif %}"><svg class="ic"><use href="#i-team"/></svg> Brigadalar</a>
+       {% if brig_menyu %}<div class="subnav">
+diff --git a/core/templates/core/bosh.html b/core/templates/core/bosh.html
+index 7880fad..2a8f583 100644
+--- a/core/templates/core/bosh.html
++++ b/core/templates/core/bosh.html
+@@ -8,7 +8,7 @@
+   <div class="card" style="text-align:center;padding:60px 20px">
+     <h3>Hali ma'lumot yuklanmagan</h3>
+     <p class="muted">CAS dan olingan Excel fayllarni yuklang.</p>
+-    {% if admin_mi %}<a class="btn" href="{% url 'yuklash' %}">Fayl yuklash</a>{% endif %}
++    {% if admin_mi %}<a class="btn" href="{% url 'yuklash' %}">Brigada fayl yuklash</a>{% endif %}
+   </div>
+ {% else %}
+ <form class="card filtr" method="get" data-auto>
+diff --git a/core/templates/core/dinamika.html b/core/templates/core/dinamika.html
+index 2d927d8..c371bcb 100644
+--- a/core/templates/core/dinamika.html
++++ b/core/templates/core/dinamika.html
+@@ -1,15 +1,15 @@
+ {% extends "core/base.html" %}
+ {% load uzfmt %}
+-{% block title %}Dinamika{% endblock %}
+-{% block h1 %}Dinamika jadvali{% endblock %}
++{% block title %}Brigadalar dinamikasi{% endblock %}
++{% block h1 %}Brigadalar dinamikasi{% endblock %}
+ {% block h1sub %}{% if b %}{{ b|kun }}{% if a %} sanasi {{ a|kun }} bilan solishtirilmoqda{% else %} (solishtirish tanlanmagan){% endif %}{% endif %}{% endblock %}
+ {% block topact %}{% if jadval %}{% if rx.dinamika_eksport or rx.dinamika_telegram %}<div class="flex top-act">
+   {% if rx.dinamika_eksport %}<a class="btn sec sm" href="?{{ params }}&format=xlsx" title="Ikkala jadval bitta Excel faylida (2 varaq){% if tuman %}, brigadalar kesimida{% else %}, tumanlar kesimida{% endif %}"><svg class="ic"><use href="#i-down"/></svg> Excel</a>
+   <a class="btn sec sm" href="?{{ params }}&format=pdf" title="Ikkala jadval bitta PDF da{% if tuman %} (brigadalar kesimida){% else %} (tumanlar kesimida){% endif %}"><svg class="ic"><use href="#i-pdf"/></svg> PDF</a>
+   {% if not tuman and tumanlar|length > 1 %}<a class="btn sec sm" href="?{{ params }}&format=zip" title="Har bir tuman uchun brigadalar kesimidagi dinamika alohida PDF, ZIP arxivda"><svg class="ic"><use href="#i-down"/></svg> Tumanlar · brigadalar (ZIP)</a>{% endif %}{% endif %}
+   {% if rx.dinamika_telegram %}
+-  <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="xlsx" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Dinamika jadvali · Excel{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="Excel faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Excel</span></button>
+-  <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="pdf" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Dinamika jadvali · PDF{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="PDF faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · PDF</span></button>
++  <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="xlsx" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Brigadalar dinamikasi · Excel{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="Excel faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Excel</span></button>
++  <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="pdf" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Brigadalar dinamikasi · PDF{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="PDF faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · PDF</span></button>
+   {% if not tuman and tumanlar|length > 1 %}<button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="tumanlar" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="" data-nom="Tumanlar kesimida (brigadalar) · har bir tuman alohida PDF · {{ b|kun }}" title="Har bir tuman uchun brigadalar kesimidagi dinamikani alohida PDF qilib Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Tumanlar</span></button>{% endif %}
+   {% endif %}
+ </div>{% endif %}{% endif %}{% endblock %}
+diff --git a/core/templates/core/resp_yuklash.html b/core/templates/core/resp_yuklash.html
+index 793ac5f..63f0674 100644
+--- a/core/templates/core/resp_yuklash.html
++++ b/core/templates/core/resp_yuklash.html
+@@ -126,6 +126,7 @@
+   var holatUrl = document.currentScript.getAttribute('data-holat'), faolEdi = false, taymer = null;
+   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+   function toast(t, tur) {
++    if (window.bildirish) { window.bildirish(t, tur); return; }
+     var c = document.querySelector('.toasts');
+     if (!c) { c = document.createElement('div'); c.className = 'toasts'; document.body.appendChild(c); }
+     var e = document.createElement('div'); e.className = 'toast ' + (tur || ''); e.textContent = t; c.appendChild(e);
+diff --git a/core/templates/core/sozlamalar.html b/core/templates/core/sozlamalar.html
+index 5d50fa9..313e567 100644
+--- a/core/templates/core/sozlamalar.html
++++ b/core/templates/core/sozlamalar.html
+@@ -26,7 +26,7 @@
+       <li>Botni kerakli guruhga qo'shing va <b>administrator</b> qiling (fayl yuborish uchun).</li>
+       <li>Guruhga bitta xabar yozing, so'ng <b>«Guruhlarni aniqlash»</b> tugmasini bosing. Guruh ro'yxatga tushadi.</li>
+       <li>Topilmasa, guruhning Chat ID sini qo'lda kiriting (masalan <code>-1001234567890</code>).</li>
+-      <li>Dinamika jadvali va Respublika dinamikasi sahifalaridagi «Telegram» tugmalari shu guruhlarga yuboradi.</li>
++      <li>Brigadalar dinamikasi va Respublika dinamikasi sahifalaridagi «Telegram» tugmalari shu guruhlarga yuboradi.</li>
+     </ol>
+   </div>
+ </div>
+diff --git a/core/templates/core/yuklash.html b/core/templates/core/yuklash.html
+index a1f4abd..c76bfb2 100644
+--- a/core/templates/core/yuklash.html
++++ b/core/templates/core/yuklash.html
+@@ -1,7 +1,7 @@
+ {% extends "core/base.html" %}
+ {% load uzfmt %}
+-{% block title %}Fayl yuklash{% endblock %}
+-{% block h1 %}Fayl yuklash{% endblock %}
++{% block title %}Brigada fayl yuklash{% endblock %}
++{% block h1 %}Brigada fayl yuklash{% endblock %}
+ {% block h1sub %}CAS dan olingan Excel fayllar{% endblock %}
+ {% block content %}
+ <div class="grid g3">
+@@ -32,7 +32,7 @@
+       <div class="muted" style="font-size:12px;margin-top:6px" id="yuk-prog-h">Fayl serverga yuborilmoqda. Yuborish tugaguncha sahifani yopmang; keyin qayta ishlash serverda fonda davom etadi.</div>
+     </div>
+     <p style="margin-top:18px"><button class="btn" type="submit" id="yuk-btn"><svg class="ic"><use href="#i-upload"/></svg> Yuklash va qayta ishlash</button></p>
+-  </form>{% else %}<div class="card"><h3>Fayl yuklash</h3><div class="sub">Sizda fayl yuklash ruxsati yo'q, faqat yuklamalar tarixini ko'rishingiz mumkin.</div></div>{% endif %}
++  </form>{% else %}<div class="card"><h3>Brigada fayl yuklash</h3><div class="sub">Sizda fayl yuklash ruxsati yo'q, faqat yuklamalar tarixini ko'rishingiz mumkin.</div></div>{% endif %}
+   <div class="card">
+     <h3>Qanday ishlaydi</h3>
+     <ol class="muted" style="padding-left:18px;line-height:1.7;margin:8px 0 0">
+@@ -89,7 +89,7 @@
+         var p = Math.round(ev.loaded * 100 / ev.total); bar.style.width = p + '%'; pr.textContent = p + '% (' + Math.round(ev.loaded / 1048576 * 10) / 10 + ' / ' + Math.round(ev.total / 1048576 * 10) / 10 + ' MB)';
+         if (p >= 100) tt.textContent = 'Server qabul qilmoqda…';
+       };
+-      function xato(m) { yuboryapti = false; btn.disabled = false; tt.textContent = 'Xato'; hh.textContent = m; hh.style.color = 'var(--bad)'; }
++      function xato(m) { yuboryapti = false; btn.disabled = false; tt.textContent = 'Xato'; hh.textContent = m; hh.style.color = 'var(--bad)'; if (window.bildirish) window.bildirish('Fayl yuklanmadi: ' + m, 'error'); }
+       x.onload = function () {
+         var d = null; try { d = JSON.parse(x.responseText); } catch (er) {}
+         if (x.status === 200 && d && d.ok) { yuboryapti = false; tt.textContent = 'Qabul qilindi. Qayta ishlash serverda fonda boshlandi.'; bar.style.width = '100%'; try { sessionStorage.setItem('bild_flash', d.soni + ' ta fayl serverga yuklandi. Qayta ishlash orqa fonda boshlandi, tugagach xabar chiqadi.'); } catch (er) {} setTimeout(function () { location.reload(); }, 600); }
+diff --git a/core/tests.py b/core/tests.py
+index ebbcbba..c683ce5 100644
+--- a/core/tests.py
++++ b/core/tests.py
+@@ -832,3 +832,36 @@ class TgTugmalarYuqoridaTest(TestCase):
+         g = TelegramGuruh.objects.get(chat_id="-1005550001111")
+         self.assertEqual(g.nom, "Ikkinchi")
+         self.assertContains(r, "baribir qo")
++
++
++class NomlarVaXabarlarTest(TestCase):
++    def setUp(self):
++        self.u = User.objects.create_superuser("admin", password="Admin@12345")
++        self.client.login(username="admin", password="Admin@12345")
++
++    def test_yangi_nomlar(self):
++        h = self.client.get(reverse("bosh")).content.decode()
++        self.assertIn("Brigadalar dinamikasi", h)
++        self.assertIn("Brigada fayl yuklash", h)
++        self.assertNotIn("Dinamika jadvallari", h)
++        self.assertContains(self.client.get(reverse("yuklash")), "<h1>Brigada fayl yuklash")
++        self.assertContains(self.client.get(reverse("dinamika")), "<h1>Brigadalar dinamikasi")
++
++    def test_parol_xabari(self):
++        r = self.client.post(reverse("parol"), {"old_password": "Admin@12345", "new_password1": "Yangi@12345", "new_password2": "Yangi@12345"}, follow=True)
++        self.assertContains(r, "Parol muvaffaqiyatli o")
++        self.client.login(username="admin", password="Yangi@12345")
++        r = self.client.post(reverse("parol"), {"old_password": "xato", "new_password1": "a", "new_password2": "b"})
++        self.assertContains(r, "Parolni o")
++
++    def test_foydalanuvchi_xatosi_xabar_bilan(self):
++        r = self.client.post(reverse("foydalanuvchi_yangi"), {"username": "", "parol": "123456", "rol": "admin"})
++        self.assertContains(r, "Login kiritilmadi.")
++        self.assertContains(r, 'class="toast error"')
++
++    def test_xabar_va_yuklab_olish_skripti(self):
++        h = self.client.get(reverse("bosh")).content.decode()
++        self.assertIn("app.js", h)
++        js = open("core/static/core/js/app.js", encoding="utf-8").read()
++        self.assertIn("toastQur", js)
++        self.assertIn("a[href*=\"format=\"]", js)
+diff --git a/core/urls.py b/core/urls.py
+index 81f70ff..6656b22 100644
+--- a/core/urls.py
++++ b/core/urls.py
+@@ -1,12 +1,12 @@
+ from django.contrib.auth import views as auth_views
+-from django.urls import path, reverse_lazy
++from django.urls import path
+ 
+ from . import views, views_resp, views_tg
+ 
+ urlpatterns = [
+     path("kirish/", auth_views.LoginView.as_view(template_name="core/kirish.html", redirect_authenticated_user=True), name="kirish"),
+     path("chiqish/", auth_views.LogoutView.as_view(), name="chiqish"),
+-    path("parol/", auth_views.PasswordChangeView.as_view(template_name="core/parol.html", success_url=reverse_lazy("bosh")), name="parol"),
++    path("parol/", views.ParolView.as_view(), name="parol"),
+     path("", views.bosh, name="bosh"),
+     path("dinamika/", views.dinamika, name="dinamika"),
+     path("respublika/", views_resp.resp_dinamika, name="resp_dinamika"),
+diff --git a/core/views.py b/core/views.py
+index c1853b4..d27982a 100644
+--- a/core/views.py
++++ b/core/views.py
+@@ -6,6 +6,8 @@ import uuid
+ from django.conf import settings
+ from django.contrib import messages
+ from django.contrib.auth.decorators import login_required
++from django.contrib.auth.views import PasswordChangeView
++from django.urls import reverse_lazy
+ from django.contrib.auth.models import User
+ from django.core.exceptions import PermissionDenied
+ from django.core.paginator import Paginator
+@@ -384,6 +386,19 @@ def xarita_api(request):
+     return JsonResponse({"nuqtalar": nuq, "hisob": hisob, "jami": sum(hisob.values())})
+ 
+ 
++class ParolView(PasswordChangeView):
++    template_name = "core/parol.html"
++    success_url = reverse_lazy("bosh")
++
++    def form_valid(self, form):
++        messages.success(self.request, "Parol muvaffaqiyatli o'zgartirildi.")
++        return super().form_valid(form)
++
++    def form_invalid(self, form):
++        messages.error(self.request, "Parolni o'zgartirib bo'lmadi. Eski parolni va yangi parol talablarini tekshiring.")
++        return super().form_invalid(form)
++
++
+ OYLAR = {1: "yanvar", 2: "fevral", 3: "mart", 4: "aprel", 5: "may", 6: "iyun", 7: "iyul", 8: "avgust", 9: "sentabr", 10: "oktabr", 11: "noyabr", 12: "dekabr"}
+ 
+ 
+@@ -450,9 +465,9 @@ def bildirish_holat(request):
+             out.append({"k": f"y{y.id}", "faol": True})
+         elif y.holat == "tayyor":
+             tur = "" if y.tur == "kutilmoqda" else f" ({y.get_tur_display()})"
+-            out.append({"k": f"y{y.id}", "faol": False, "tur": "success", "matn": f"✅ {nom}{tur}: qayta ishlandi. {y.xabar}"[:400]})
++            out.append({"k": f"y{y.id}", "faol": False, "tur": "success", "matn": f"{nom}{tur}: qayta ishlandi. {y.xabar}"[:400]})
+         else:
+-            out.append({"k": f"y{y.id}", "faol": False, "tur": "error", "matn": f"❌ {nom}: {(y.xabar or 'xato').splitlines()[0]}"[:400]})
++            out.append({"k": f"y{y.id}", "faol": False, "tur": "error", "matn": f"{nom}: {(y.xabar or 'xato').splitlines()[0]}"[:400]})
+     for t in TelegramIsh.objects.filter(yaratgan=request.user, vaqt__gte=uzoq).order_by("-vaqt")[:20]:
+         if t.holat != "jarayonda" and t.vaqt < yaqin:
+             continue
+@@ -460,23 +475,23 @@ def bildirish_holat(request):
+         if t.holat == "jarayonda":
+             out.append({"k": k, "faol": True})
+         elif t.holat == "tayyor":
+-            out.append({"k": k, "faol": False, "tur": "success", "matn": f"✅ Telegramga yuborildi: {t.sarlavha} ({t.yuborildi} ta xabar)."})
++            out.append({"k": k, "faol": False, "tur": "success", "matn": f"Telegramga yuborildi: {t.sarlavha} ({t.yuborildi} ta xabar)."})
+         elif t.holat == "qisman":
+-            out.append({"k": k, "faol": False, "tur": "warning", "matn": f"⚠️ Telegramga qisman yuborildi ({t.yuborildi}/{t.jami}): {t.xabar.splitlines()[0] if t.xabar else ''}"[:400]})
++            out.append({"k": k, "faol": False, "tur": "warning", "matn": f"Telegramga qisman yuborildi ({t.yuborildi}/{t.jami}): {t.xabar.splitlines()[0] if t.xabar else ''}"[:400]})
+         else:
+             sabab = t.xabar.splitlines()[0] if t.xabar else "noma'lum xato"
+-            out.append({"k": k, "faol": False, "tur": "error", "matn": f"❌ Telegramga yuborib bo'lmadi: {sabab}"[:400]})
++            out.append({"k": k, "faol": False, "tur": "error", "matn": f"Telegramga yuborib bo'lmadi: {sabab}"[:400]})
+     for r in RespIsh.objects.filter(yuklagan=request.user, vaqt__gte=uzoq).order_by("-vaqt")[:20]:
+         if r.holat in ("navbatda", "jarayonda"):
+             out.append({"k": f"r{r.id}", "faol": True})
+         elif r.vaqt >= yaqin:
+             k = f"r{r.id}"
+             if r.holat == "tayyor":
+-                out.append({"k": k, "faol": False, "tur": "success", "matn": f"✅ Respublika PDF o'qildi: {r.fayl_nomi}"})
++                out.append({"k": k, "faol": False, "tur": "success", "matn": f"Respublika PDF o'qildi: {r.fayl_nomi}"})
+             elif r.holat == "ogoh":
+-                out.append({"k": k, "faol": False, "tur": "warning", "matn": f"⚠️ Respublika PDF o'qildi, lekin ogohlantirish bor: {r.fayl_nomi}"})
++                out.append({"k": k, "faol": False, "tur": "warning", "matn": f"Respublika PDF o'qildi, lekin ogohlantirish bor: {r.fayl_nomi}"})
+             else:
+-                out.append({"k": k, "faol": False, "tur": "error", "matn": f"❌ Respublika PDF o'qilmadi: {r.fayl_nomi}. {(r.xabar or '').splitlines()[0] if r.xabar else ''}"[:400]})
++                out.append({"k": k, "faol": False, "tur": "error", "matn": f"Respublika PDF o'qilmadi: {r.fayl_nomi}. {(r.xabar or '').splitlines()[0] if r.xabar else ''}"[:400]})
+     return JsonResponse({"ishlar": out})
+ 
+ 
+@@ -705,6 +720,7 @@ def foydalanuvchi_tahrir(request, pk=None):
+             pr.save()
+             messages.success(request, "Foydalanuvchi saqlandi.")
+             return redirect("foydalanuvchilar")
++        messages.error(request, xato)
+         admin_rol = rol == "admin"
+     else:
+         if u:
+diff --git a/core/views_tg.py b/core/views_tg.py
+index c46b274..e051964 100644
+--- a/core/views_tg.py
++++ b/core/views_tg.py
+@@ -176,7 +176,7 @@ def yuborish(request):
+         if b not in S.mavjud_sanalar():
+             return JsonResponse({"xato": "Bu sana uchun ma'lumot yuklanmagan."}, status=400)
+         ruxsat, tid = _tuman_tanla(request.user, P.get("tuman"))
+-        sarlavha = f"Dinamika jadvali · {TUR_NOM[tur]} · {b:%d.%m.%Y}"
++        sarlavha = f"Brigadalar dinamikasi · {TUR_NOM[tur]} · {b:%d.%m.%Y}"
+         def fayllar():
+             return TY.dinamika_fayllari(tur, a, b, ruxsat, tid)
+     else:

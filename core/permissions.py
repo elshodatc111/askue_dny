@@ -17,11 +17,11 @@ from .models import Profil
 # (kod, nomi, [(amal, nomi)], faqat_admin)
 BOLIMLAR = [
     ("bosh", "Bosh panel", [("korish", "Ko'rish")], False),
-    ("dinamika", "Dinamika jadvallari", [("korish", "Ko'rish"), ("eksport", "Excel / PDF yuklab olish"), ("telegram", "Telegram guruhlarga yuborish")], False),
+    ("dinamika", "Brigadalar dinamikasi", [("korish", "Ko'rish"), ("eksport", "Excel / PDF yuklab olish"), ("telegram", "Telegram guruhlarga yuborish")], False),
     ("resp_dinamika", "Respublika dinamikasi", [("korish", "Ko'rish"), ("eksport", "Excel / PDF yuklab olish"), ("telegram", "Telegram guruhlarga yuborish"), ("kunlar", "Kunlarni belgilash (ish / dam olish)")], False),
     ("royxat", "Nomma-nom ro'yxat", [("korish", "Ko'rish"), ("eksport", "Excelga yuklab olish")], False),
     ("xarita", "Xarita", [("korish", "Ko'rish")], False),
-    ("yuklash", "Fayl yuklash", [("korish", "Yuklamalar ro'yxatini ko'rish"), ("yuklash", "Fayl yuklash"), ("ochirish", "Yuklamani o'chirish")], False),
+    ("yuklash", "Brigada fayl yuklash", [("korish", "Yuklamalar ro'yxatini ko'rish"), ("yuklash", "Fayl yuklash"), ("ochirish", "Yuklamani o'chirish")], False),
     ("resp_yuklash", "Respublika: fayl yuklash", [("korish", "Sahifani ko'rish"), ("yuklash", "PDF yuklash")], False),
     ("resp_fayllar", "Respublika: yuklangan PDF lar (Respublika PDF yuklash sahifasida)", [("yuklab", "Asl PDF ni yuklab olish"), ("ochirish", "Faylni o'chirish")], False),
     ("brigadalar", "Brigadalar", [("korish", "Ko'rish"), ("yaratish", "Yangi brigada qo'shish"), ("tahrirlash", "Tahrirlash"), ("ochirish", "O'chirish")], False),

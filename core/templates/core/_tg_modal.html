@@ -94,9 +94,9 @@
         }
         yuklanish(btn, false); try { sessionStorage.removeItem(kalit(btn)); } catch (e) {}
         var tk = 't' + id;
-        if (d.holat === 'tayyor') toast('✅ Telegramga yuborildi: ' + d.sarlavha + ' (' + d.yuborildi + ' ta xabar).', 'success', tk);
-        else if (d.holat === 'qisman') toast('⚠️ Telegramga qisman yuborildi (' + d.yuborildi + '/' + d.jami + '). Xato: ' + d.xabar.split('\n')[0], 'warning', tk);
-        else toast('❌ Telegramga yuborib bo\'lmadi: ' + (d.xabar || 'noma\'lum xato').split('\n')[0], 'error', tk);
+        if (d.holat === 'tayyor') toast('Telegramga yuborildi: ' + d.sarlavha + ' (' + d.yuborildi + ' ta xabar).', 'success', tk);
+        else if (d.holat === 'qisman') toast('Telegramga qisman yuborildi (' + d.yuborildi + '/' + d.jami + '). Xato: ' + d.xabar.split('\n')[0], 'warning', tk);
+        else toast('Telegramga yuborib bo\'lmadi: ' + (d.xabar || 'noma\'lum xato').split('\n')[0], 'error', tk);
       }).catch(function () {
         if (++xatolar < 5) { setTimeout(sora, 4000); return; }
         yuklanish(btn, false); try { sessionStorage.removeItem(kalit(btn)); } catch (e) {}
