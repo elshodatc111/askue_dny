@@ -1,4 +1,13 @@
 (function () {
+  // ---- modal oynalar ekran markazida turishi uchun <body> ga ko'chiriladi ----
+  // (animatsiyali ota-element ichida position:fixed sahifa o'rtasiga tushib qoladi)
+  function modallarniKochir() {
+    document.querySelectorAll('.modal').forEach(function (m) { if (m.parentNode !== document.body) document.body.appendChild(m); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', modallarniKochir); else modallarniKochir();
+  window.addEventListener('load', modallarniKochir);
+})();
+(function () {
   // ---- mavzu (yorug' / qorong'i) ----
   var root = document.documentElement;
   function setTheme(t) { root.setAttribute('data-theme', t); try { localStorage.setItem('tema', t); } catch (e) {} window.dispatchEvent(new Event('tema-ozgardi')); }

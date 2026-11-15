@@ -32,6 +32,7 @@
 {% verbatim %}
 (function () {
   var modal = document.getElementById('tg-modal'); if (!modal) return;
+  if (modal.parentNode !== document.body) document.body.appendChild(modal);
   var list = document.getElementById('tg-list'), subEl = document.getElementById('tg-sub'), yubor = document.getElementById('tg-yubor');
   var csrf = modal.querySelector('input[name=csrfmiddlewaretoken]').value;
   var joriy = null, ISHLAR = {};
