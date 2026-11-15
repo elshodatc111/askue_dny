@@ -18,6 +18,7 @@ urlpatterns = [
     path("royxat/", views.royxat, name="royxat"),
     path("xarita/", views.xarita, name="xarita"),
     path("xarita/api/", views.xarita_api, name="xarita_api"),
+    path("bildirishnoma/", views.bildirish_holat, name="bildirish"),
     path("yuklash/", views.yuklash, name="yuklash"),
     path("yuklash/holat/", views.yuklash_holat, name="yuklash_holat"),
     path("yuklash/<int:pk>/ochirish/", views.yuklama_ochirish, name="yuklama_ochirish"),

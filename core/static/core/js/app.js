@@ -60,6 +60,33 @@
   var all = document.getElementById('hammasi');
   if (all) all.addEventListener('change', function () { document.querySelectorAll('input[name=tp]').forEach(function (c) { c.checked = all.checked; }); });
 
+  // ---- bildirishnomalar: har qanday sahifada vazifa tugaganda «bajarildi / xato» xabari ----
+  var BK = 'bild_korilgan';
+  function oku(k) { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { return []; } }
+  function yoz(k, v) { try { localStorage.setItem(k, JSON.stringify(v.slice(-300))); } catch (e) {} }
+  // key berilsa, bir xil xabar bitta brauzerda faqat bir marta ko'rsatiladi
+  window.bildirish = function (matn, tur, key) {
+    if (key) { var k = oku(BK); if (k.indexOf(key) >= 0) return false; k.push(key); yoz(BK, k); }
+    var c = document.querySelector('.toasts');
+    if (!c) { c = document.createElement('div'); c.className = 'toasts'; document.body.appendChild(c); }
+    var e = document.createElement('div'); e.className = 'toast ' + (tur || ''); e.textContent = matn; e.style.cursor = 'pointer'; e.title = 'Yopish uchun bosing';
+    e.addEventListener('click', function () { e.remove(); }); c.appendChild(e);
+    if (tur !== 'error') setTimeout(function () { e.style.transition = 'opacity .5s'; e.style.opacity = 0; setTimeout(function () { e.remove(); }, 600); }, tur === 'warning' ? 14000 : 10000);
+    return true;
+  };
+  window.bildirKo = function (key) { var k = oku(BK); if (k.indexOf(key) < 0) { k.push(key); yoz(BK, k); } };
+  try { var fl = sessionStorage.getItem('bild_flash'); if (fl) { sessionStorage.removeItem('bild_flash'); window.bildirish(fl, 'success'); } } catch (e) {}
+  var bildUrl = document.body.getAttribute('data-bild');
+  if (bildUrl) {
+    (function sora() {
+      fetch(bildUrl, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('bild'); return r.json(); }).then(function (d) {
+        var faol = false;
+        d.ishlar.forEach(function (i) { if (i.faol) faol = true; else window.bildirish(i.matn, i.tur, i.k); });
+        setTimeout(sora, faol ? 2500 : 20000);
+      }).catch(function () { setTimeout(sora, 30000); });
+    })();
+  }
+
   // ---- diagramma yordamchilari ----
   window.ranglar = function () {
     var cs = getComputedStyle(root);

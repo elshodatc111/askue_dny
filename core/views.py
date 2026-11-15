@@ -12,9 +12,10 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .models import TP, Brigada, Hodim, Kuzatuv, Profil, Tuman, Yuklama
+from .models import TP, Brigada, Hodim, Kuzatuv, Profil, RespIsh, TelegramIsh, Tuman, Yuklama
 from .permissions import (BARCHA, BOLIMLAR, FAQAT_ADMIN, ROL_STANDART, birinchi_sahifa, bor, is_admin, ruxsat_kerak,
                           ruxsatlar, standart, tuman_ids, tuman_ruxsati)
 from .services import eksport, importer
@@ -417,15 +418,71 @@ def yuklash(request):
             xom.append({"yuklama_id": y.id, "path": yol, "fayl_nomi": f.name, "majburiy": majburiy, "fayldan": fayldan, "forma_sana": forma_sana})
         importer.fonda_boshlash_xom(xom)
         if ajax:
-            return JsonResponse({"ok": True, "soni": len(xom)})
+            return JsonResponse({"ok": True, "soni": len(xom), "idlar": [x["yuklama_id"] for x in xom]})
         messages.info(request, f"{len(xom)} ta fayl qabul qilindi. Qayta ishlash orqa fonda davom etadi, natijani pastdagi jadvalda ko'rasiz.")
         return redirect("yuklash")
+    _eskirgan_yuklamalar()
     royxat = Yuklama.objects.select_related("yuklagan").order_by("-vaqt")[:40]
     return render(request, "core/yuklash.html", {"royxat": royxat, "bugun": datetime.date.today(), "turlar": Yuklama.TURLAR})
 
 
+ESKIRDI = datetime.timedelta(minutes=45)  # server qayta ishga tushsa, "jarayonda" qolib ketganlarni yopish uchun
+
+
+def _eskirgan_yuklamalar():
+    Yuklama.objects.filter(holat="jarayonda", vaqt__lt=timezone.now() - ESKIRDI).update(
+        holat="xato", xabar="Jarayon to'xtab qoldi (server qayta ishga tushgan bo'lishi mumkin). Faylni qayta yuklang.")
+
+
+@login_required
+def bildirish_holat(request):
+    """Joriy foydalanuvchi boshlagan orqa fon vazifalari (fayl qayta ishlash, Telegramga yuborish, PDF o'qish).
+    Brauzer shuni kuzatib, vazifa tugaganda «bajarildi / xato» xabarini ko'rsatadi (qaysi sahifada bo'lishidan qat'i nazar)."""
+    _eskirgan_yuklamalar()
+    hozir = timezone.now()
+    yaqin, uzoq = hozir - datetime.timedelta(minutes=15), hozir - datetime.timedelta(hours=2)
+    out = []
+    for y in Yuklama.objects.filter(yuklagan=request.user, vaqt__gte=uzoq).order_by("-vaqt")[:30]:
+        if y.holat != "jarayonda" and y.vaqt < yaqin:
+            continue
+        nom = y.fayl_nomi or "Fayl"
+        if y.holat == "jarayonda":
+            out.append({"k": f"y{y.id}", "faol": True})
+        elif y.holat == "tayyor":
+            tur = "" if y.tur == "kutilmoqda" else f" ({y.get_tur_display()})"
+            out.append({"k": f"y{y.id}", "faol": False, "tur": "success", "matn": f"✅ {nom}{tur}: qayta ishlandi. {y.xabar}"[:400]})
+        else:
+            out.append({"k": f"y{y.id}", "faol": False, "tur": "error", "matn": f"❌ {nom}: {(y.xabar or 'xato').splitlines()[0]}"[:400]})
+    for t in TelegramIsh.objects.filter(yaratgan=request.user, vaqt__gte=uzoq).order_by("-vaqt")[:20]:
+        if t.holat != "jarayonda" and t.vaqt < yaqin:
+            continue
+        k = f"t{t.id}"
+        if t.holat == "jarayonda":
+            out.append({"k": k, "faol": True})
+        elif t.holat == "tayyor":
+            out.append({"k": k, "faol": False, "tur": "success", "matn": f"✅ Telegramga yuborildi: {t.sarlavha} ({t.yuborildi} ta xabar)."})
+        elif t.holat == "qisman":
+            out.append({"k": k, "faol": False, "tur": "warning", "matn": f"⚠️ Telegramga qisman yuborildi ({t.yuborildi}/{t.jami}): {t.xabar.splitlines()[0] if t.xabar else ''}"[:400]})
+        else:
+            sabab = t.xabar.splitlines()[0] if t.xabar else "noma'lum xato"
+            out.append({"k": k, "faol": False, "tur": "error", "matn": f"❌ Telegramga yuborib bo'lmadi: {sabab}"[:400]})
+    for r in RespIsh.objects.filter(yuklagan=request.user, vaqt__gte=uzoq).order_by("-vaqt")[:20]:
+        if r.holat in ("navbatda", "jarayonda"):
+            out.append({"k": f"r{r.id}", "faol": True})
+        elif r.vaqt >= yaqin:
+            k = f"r{r.id}"
+            if r.holat == "tayyor":
+                out.append({"k": k, "faol": False, "tur": "success", "matn": f"✅ Respublika PDF o'qildi: {r.fayl_nomi}"})
+            elif r.holat == "ogoh":
+                out.append({"k": k, "faol": False, "tur": "warning", "matn": f"⚠️ Respublika PDF o'qildi, lekin ogohlantirish bor: {r.fayl_nomi}"})
+            else:
+                out.append({"k": k, "faol": False, "tur": "error", "matn": f"❌ Respublika PDF o'qilmadi: {r.fayl_nomi}. {(r.xabar or '').splitlines()[0] if r.xabar else ''}"[:400]})
+    return JsonResponse({"ishlar": out})
+
+
 @ruxsat_kerak("yuklash.korish")
 def yuklash_holat(request):
+    _eskirgan_yuklamalar()
     out = []
     for y in Yuklama.objects.order_by("-vaqt")[:40]:
         out.append({"id": y.id, "holat": y.holat, "holat_txt": y.get_holat_display(), "xabar": y.xabar[:300], "qatorlar": y.qatorlar})

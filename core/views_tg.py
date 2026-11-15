@@ -88,11 +88,22 @@ def _amal(request, sz, amal):
         if not cid:
             messages.error(request, "Chat ID kiriting.")
             return
-        chat = T.chat_topish(sz.bot_token, cid)
+        majburan = P.get("majburan") == "1"
+        qol_nom = (P.get("nom") or "").strip()
+        if majburan:
+            # Telegram bilan tekshirmasdan qo'shish (bot hali guruhga qo'shilmagan yoki Telegramga ulanib bo'lmayotgan bo'lsa)
+            nomzod = T.chat_nomzodlari(cid)[0]
+            chat = {"id": nomzod, "title": qol_nom or nomzod, "type": ""}
+            try:
+                chat = T.chat_topish(sz.bot_token, cid)
+            except T.TgXato as e:
+                messages.warning(request, f"Telegram tekshiruvi o'tmadi ({T.xato_matni(e)}) Guruh baribir qo'shildi: unga yuborishdan oldin botni guruhga administrator qilib qo'shing va «Sinov xabari» ni bosing.")
+        else:
+            chat = T.chat_topish(sz.bot_token, cid)
         if chat.get("type") == "private":
             messages.error(request, "Bu shaxsiy suhbat Chat ID si, guruh emas. Guruhning Chat ID sini kiriting.")
             return
-        nom = chat.get("title") or chat.get("username") or str(chat["id"])
+        nom = qol_nom or chat.get("title") or chat.get("username") or str(chat["id"])
         _o, yaratildi = TelegramGuruh.objects.update_or_create(chat_id=str(chat["id"]), defaults={"nom": nom[:200], "tur": chat.get("type") or "", "faol": True})
         holat_txt = "qo'shildi" if yaratildi else "yangilandi"
         messages.success(request, f"Guruh {holat_txt}: {nom}")

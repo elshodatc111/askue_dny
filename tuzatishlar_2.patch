@@ -1,0 +1,420 @@
+diff --git a/core/static/core/css/app.css b/core/static/core/css/app.css
+index 8f0d0c0..0c47037 100644
+--- a/core/static/core/css/app.css
++++ b/core/static/core/css/app.css
+@@ -41,6 +41,8 @@ a:hover { text-decoration: underline; }
+ .side-foot .acts a:hover, .side-foot .acts button:hover { background: rgba(255,255,255,.14); }
+ .main { margin-left: 248px; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+ .top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px; padding: 14px 28px; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
++.top-act { gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
++.top { flex-wrap: wrap; }
+ .top h1 { margin: 0; font-size: 20px; font-weight: 700; flex: 1; }
+ .top h1 small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+ .icon-btn { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); display: inline-grid; place-items: center; cursor: pointer; }
+diff --git a/core/static/core/js/app.js b/core/static/core/js/app.js
+index c7012c2..34b0c09 100644
+--- a/core/static/core/js/app.js
++++ b/core/static/core/js/app.js
+@@ -60,6 +60,33 @@
+   var all = document.getElementById('hammasi');
+   if (all) all.addEventListener('change', function () { document.querySelectorAll('input[name=tp]').forEach(function (c) { c.checked = all.checked; }); });
+ 
++  // ---- bildirishnomalar: har qanday sahifada vazifa tugaganda «bajarildi / xato» xabari ----
++  var BK = 'bild_korilgan';
++  function oku(k) { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { return []; } }
++  function yoz(k, v) { try { localStorage.setItem(k, JSON.stringify(v.slice(-300))); } catch (e) {} }
++  // key berilsa, bir xil xabar bitta brauzerda faqat bir marta ko'rsatiladi
++  window.bildirish = function (matn, tur, key) {
++    if (key) { var k = oku(BK); if (k.indexOf(key) >= 0) return false; k.push(key); yoz(BK, k); }
++    var c = document.querySelector('.toasts');
++    if (!c) { c = document.createElement('div'); c.className = 'toasts'; document.body.appendChild(c); }
++    var e = document.createElement('div'); e.className = 'toast ' + (tur || ''); e.textContent = matn; e.style.cursor = 'pointer'; e.title = 'Yopish uchun bosing';
++    e.addEventListener('click', function () { e.remove(); }); c.appendChild(e);
++    if (tur !== 'error') setTimeout(function () { e.style.transition = 'opacity .5s'; e.style.opacity = 0; setTimeout(function () { e.remove(); }, 600); }, tur === 'warning' ? 14000 : 10000);
++    return true;
++  };
++  window.bildirKo = function (key) { var k = oku(BK); if (k.indexOf(key) < 0) { k.push(key); yoz(BK, k); } };
++  try { var fl = sessionStorage.getItem('bild_flash'); if (fl) { sessionStorage.removeItem('bild_flash'); window.bildirish(fl, 'success'); } } catch (e) {}
++  var bildUrl = document.body.getAttribute('data-bild');
++  if (bildUrl) {
++    (function sora() {
++      fetch(bildUrl, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('bild'); return r.json(); }).then(function (d) {
++        var faol = false;
++        d.ishlar.forEach(function (i) { if (i.faol) faol = true; else window.bildirish(i.matn, i.tur, i.k); });
++        setTimeout(sora, faol ? 2500 : 20000);
++      }).catch(function () { setTimeout(sora, 30000); });
++    })();
++  }
++
+   // ---- diagramma yordamchilari ----
+   window.ranglar = function () {
+     var cs = getComputedStyle(root);
+diff --git a/core/templates/core/_tg_modal.html b/core/templates/core/_tg_modal.html
+index 06989af..7a9e9d9 100644
+--- a/core/templates/core/_tg_modal.html
++++ b/core/templates/core/_tg_modal.html
+@@ -36,7 +36,8 @@
+   var csrf = modal.querySelector('input[name=csrfmiddlewaretoken]').value;
+   var joriy = null, ISHLAR = {};
+   function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+-  function toast(t, tur) {
++  function toast(t, tur, key) {
++    if (window.bildirish) { window.bildirish(t, tur, key); return; }
+     var c = document.querySelector('.toasts');
+     if (!c) { c = document.createElement('div'); c.className = 'toasts'; document.body.appendChild(c); }
+     var e = document.createElement('div'); e.className = 'toast ' + (tur || ''); e.textContent = t; c.appendChild(e);
+@@ -92,9 +93,10 @@
+           setTimeout(sora, 2000); return;
+         }
+         yuklanish(btn, false); try { sessionStorage.removeItem(kalit(btn)); } catch (e) {}
+-        if (d.holat === 'tayyor') toast('Telegramga yuborildi: ' + d.sarlavha + ' (' + d.yuborildi + ' ta xabar).', 'success');
+-        else if (d.holat === 'qisman') toast('Qisman yuborildi (' + d.yuborildi + '/' + d.jami + '). Xato: ' + d.xabar.split('\n')[0], 'warning');
+-        else toast('Yuborib bo\'lmadi: ' + (d.xabar || 'noma\'lum xato').split('\n')[0], 'error');
++        var tk = 't' + id;
++        if (d.holat === 'tayyor') toast('✅ Telegramga yuborildi: ' + d.sarlavha + ' (' + d.yuborildi + ' ta xabar).', 'success', tk);
++        else if (d.holat === 'qisman') toast('⚠️ Telegramga qisman yuborildi (' + d.yuborildi + '/' + d.jami + '). Xato: ' + d.xabar.split('\n')[0], 'warning', tk);
++        else toast('❌ Telegramga yuborib bo\'lmadi: ' + (d.xabar || 'noma\'lum xato').split('\n')[0], 'error', tk);
+       }).catch(function () {
+         if (++xatolar < 5) { setTimeout(sora, 4000); return; }
+         yuklanish(btn, false); try { sessionStorage.removeItem(kalit(btn)); } catch (e) {}
+diff --git a/core/templates/core/base.html b/core/templates/core/base.html
+index daffdd3..8e6772e 100644
+--- a/core/templates/core/base.html
++++ b/core/templates/core/base.html
+@@ -10,7 +10,7 @@
+ <link rel="stylesheet" href="{% static 'core/css/energy.css' %}">
+ {% block head %}{% endblock %}
+ </head>
+-<body data-sect="{{ request.resolver_match.url_name }}">
++<body data-sect="{{ request.resolver_match.url_name }}"{% if request.user.is_authenticated %} data-bild="{% url 'bildirish' %}"{% endif %}>
+ {% include "core/_logo.html" %}
+ <div class="fon" aria-hidden="true">{% include "core/_fon.html" %}</div>
+ <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+diff --git a/core/templates/core/dinamika.html b/core/templates/core/dinamika.html
+index 8dcbcd5..2d927d8 100644
+--- a/core/templates/core/dinamika.html
++++ b/core/templates/core/dinamika.html
+@@ -3,11 +3,16 @@
+ {% block title %}Dinamika{% endblock %}
+ {% block h1 %}Dinamika jadvali{% endblock %}
+ {% block h1sub %}{% if b %}{{ b|kun }}{% if a %} sanasi {{ a|kun }} bilan solishtirilmoqda{% else %} (solishtirish tanlanmagan){% endif %}{% endif %}{% endblock %}
+-{% block topact %}{% if jadval and rx.dinamika_eksport %}<div class="flex" style="gap:8px;flex-wrap:wrap;justify-content:flex-end">
+-  <a class="btn sec sm" href="?{{ params }}&format=xlsx" title="Ikkala jadval bitta Excel faylida (2 varaq){% if tuman %}, brigadalar kesimida{% else %}, tumanlar kesimida{% endif %}"><svg class="ic"><use href="#i-down"/></svg> Excel</a>
++{% block topact %}{% if jadval %}{% if rx.dinamika_eksport or rx.dinamika_telegram %}<div class="flex top-act">
++  {% if rx.dinamika_eksport %}<a class="btn sec sm" href="?{{ params }}&format=xlsx" title="Ikkala jadval bitta Excel faylida (2 varaq){% if tuman %}, brigadalar kesimida{% else %}, tumanlar kesimida{% endif %}"><svg class="ic"><use href="#i-down"/></svg> Excel</a>
+   <a class="btn sec sm" href="?{{ params }}&format=pdf" title="Ikkala jadval bitta PDF da{% if tuman %} (brigadalar kesimida){% else %} (tumanlar kesimida){% endif %}"><svg class="ic"><use href="#i-pdf"/></svg> PDF</a>
+-  {% if not tuman and tumanlar|length > 1 %}<a class="btn sec sm" href="?{{ params }}&format=zip" title="Har bir tuman uchun brigadalar kesimidagi dinamika alohida PDF, ZIP arxivda"><svg class="ic"><use href="#i-down"/></svg> Tumanlar · brigadalar (ZIP)</a>{% endif %}
+-</div>{% endif %}{% endblock %}
++  {% if not tuman and tumanlar|length > 1 %}<a class="btn sec sm" href="?{{ params }}&format=zip" title="Har bir tuman uchun brigadalar kesimidagi dinamika alohida PDF, ZIP arxivda"><svg class="ic"><use href="#i-down"/></svg> Tumanlar · brigadalar (ZIP)</a>{% endif %}{% endif %}
++  {% if rx.dinamika_telegram %}
++  <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="xlsx" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Dinamika jadvali · Excel{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="Excel faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Excel</span></button>
++  <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="pdf" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Dinamika jadvali · PDF{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="PDF faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · PDF</span></button>
++  {% if not tuman and tumanlar|length > 1 %}<button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="tumanlar" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="" data-nom="Tumanlar kesimida (brigadalar) · har bir tuman alohida PDF · {{ b|kun }}" title="Har bir tuman uchun brigadalar kesimidagi dinamikani alohida PDF qilib Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Tumanlar</span></button>{% endif %}
++  {% endif %}
++</div>{% endif %}{% endif %}{% endblock %}
+ {% block content %}
+ <div class="tabs">
+   {% for k, nom in sahifalar %}<a class="{% if k == sahifa %}on{% endif %}" href="?sahifa={{ k }}&b={{ b|date:'Y-m-d' }}&a={{ a|date:'Y-m-d' }}{% if tuman_id and butun_viloyat %}&tuman={{ tuman_id }}{% endif %}">{{ nom }}</a>{% endfor %}
+@@ -30,12 +35,6 @@
+     {% for p in presetlar %}<a href="?sahifa={{ sahifa }}&b={{ b|date:'Y-m-d' }}&a={{ p.iso }}{% if tuman_id and butun_viloyat %}&tuman={{ tuman_id }}{% endif %}" title="{{ p.txt }}">{{ p.nom }}</a>{% endfor %}</div>{% endif %}
+ </form>
+ 
+-{% if jadval and rx.dinamika_telegram %}<div class="card tg-qator"><span class="tg-yorliq"><svg class="ic"><use href="#i-send"/></svg> Telegram guruhlarga yuborish:</span>
+-    <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="xlsx" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Dinamika jadvali · Excel{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="Excel faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Excel</span></button>
+-  <button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="pdf" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="{{ tuman_id|default:'' }}" data-nom="Dinamika jadvali · PDF{% if tuman %} · {{ tuman.korsat }}{% endif %} · {{ b|kun }}" title="PDF faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · PDF</span></button>
+-  {% if not tuman and tumanlar|length > 1 %}<button type="button" class="btn sec sm tg-btn" data-manba="dinamika" data-tur="tumanlar" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-tuman="" data-nom="Tumanlar kesimida (brigadalar) · har bir tuman alohida PDF · {{ b|kun }}" title="Har bir tuman uchun brigadalar kesimidagi dinamikani alohida PDF qilib Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Tumanlar (PDF)</span></button>{% endif %}
+-</div>{% endif %}
+-
+ {% if tuman %}
+ <div class="crumb">
+   {% if butun_viloyat %}<a href="?sahifa={{ sahifa }}&b={{ b|date:'Y-m-d' }}&a={{ a|date:'Y-m-d' }}">Qashqadaryo HETK</a> <span>›</span>{% endif %}
+diff --git a/core/templates/core/resp_dinamika.html b/core/templates/core/resp_dinamika.html
+index 5b7f9b0..3b8114c 100644
+--- a/core/templates/core/resp_dinamika.html
++++ b/core/templates/core/resp_dinamika.html
+@@ -3,10 +3,14 @@
+ {% block title %}Respublika dinamikasi{% endblock %}
+ {% block h1 %}Respublika dinamikasi{% endblock %}
+ {% block h1sub %}{% if b %}{{ b_yorlig }}{% if a %} · {{ a|kun }} bilan solishtirilmoqda{% else %} · solishtirilmagan{% endif %}{% endif %}{% endblock %}
+-{% block topact %}{% if jadval and rx.resp_dinamika_eksport %}<div class="flex" style="gap:8px;flex-wrap:wrap;justify-content:flex-end">
+-  <a class="btn sec sm" href="?{{ bq }}&format=xlsx" title="7 ta varaq, har bir jadval alohida"><svg class="ic"><use href="#i-down"/></svg> Excel</a>
+-  <a class="btn sec sm" href="?{{ bq }}&format=pdf" title="7 betli PDF, asl hisobot ko'rinishida"><svg class="ic"><use href="#i-pdf"/></svg> PDF</a>
+-</div>{% endif %}
++{% block topact %}{% if jadval %}{% if rx.resp_dinamika_eksport or rx.resp_dinamika_telegram %}<div class="flex top-act">
++  {% if rx.resp_dinamika_eksport %}<a class="btn sec sm" href="?{{ bq }}&format=xlsx" title="7 ta varaq, har bir jadval alohida"><svg class="ic"><use href="#i-down"/></svg> Excel</a>
++  <a class="btn sec sm" href="?{{ bq }}&format=pdf" title="7 betli PDF, asl hisobot ko'rinishida"><svg class="ic"><use href="#i-pdf"/></svg> PDF</a>{% endif %}
++  {% if rx.resp_dinamika_telegram and b %}
++  <button type="button" class="btn sec sm tg-btn" data-manba="resp" data-tur="xlsx" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-nom="Respublika dinamikasi · Excel · {{ b|kun }}" title="Excel faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Excel</span></button>
++  <button type="button" class="btn sec sm tg-btn" data-manba="resp" data-tur="pdf" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-nom="Respublika dinamikasi · PDF · {{ b|kun }}" title="PDF faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · PDF</span></button>
++  {% endif %}
++</div>{% endif %}{% endif %}
+ {% endblock %}
+ {% block content %}
+ {% if not b %}
+@@ -42,11 +46,6 @@
+ {% if a_izoh %}<div class="err" style="background:var(--warn-bg);color:#b45309">{{ a_izoh }}</div>{% endif %}
+ {% if ogoh %}<details class="err" style="background:var(--warn-bg);color:#b45309"><summary>Bu kun PDF sini o'qishda {{ ogoh|length }} ta ogohlantirish bor (raqamlar PDF bilan solishtirilsin)</summary>{% for o in ogoh %}<div style="font-size:12px">{{ o }}</div>{% endfor %}</details>{% endif %}
+ 
+-{% if b and rx.resp_dinamika_telegram %}<div class="card tg-qator"><span class="tg-yorliq"><svg class="ic"><use href="#i-send"/></svg> Telegram guruhlarga yuborish:</span>
+-  <button type="button" class="btn sec sm tg-btn" data-manba="resp" data-tur="xlsx" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-nom="Respublika dinamikasi · Excel · {{ b|kun }}" title="Excel faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Excel</span></button>
+-  <button type="button" class="btn sec sm tg-btn" data-manba="resp" data-tur="pdf" data-b="{{ b|date:'Y-m-d' }}" data-a="{{ a|date:'Y-m-d' }}" data-nom="Respublika dinamikasi · PDF · {{ b|kun }}" title="PDF faylni Telegram guruhlariga yuborish"><svg class="ic"><use href="#i-send"/></svg><span class="tg-spin"></span> <span class="tg-lbl">Telegram · Dinamika (PDF)</span></button>
+-</div>{% endif %}
+-
+ <div class="legend-row">
+   <span><b class="rt-up">▲</b> qizil: ko'paygan</span><span><b class="rt-dn">▼</b> ko'k: kamaygan</span>
+   <span>Dinamika: {% if a %}{{ a|kun }} - {{ b|kun }}{% else %}{{ b|kun }}{% endif %}</span>
+diff --git a/core/templates/core/resp_yuklash.html b/core/templates/core/resp_yuklash.html
+index f8bd14e..793ac5f 100644
+--- a/core/templates/core/resp_yuklash.html
++++ b/core/templates/core/resp_yuklash.html
+@@ -163,6 +163,7 @@
+       if (d.faol) { faolEdi = true; taymer = setTimeout(sora, 1000); return; }
+       if (faolEdi) {
+         faolEdi = false; royxatniYangila();
++        if (window.bildirKo) d.ishlar.forEach(function (i) { window.bildirKo('r' + i.id); });  // global xabar takrorlanmasin
+         var xato = d.ishlar.filter(function (i) { return i.holat === 'xato'; }).length, ok = d.ishlar.length - xato;
+         toast(xato ? ('Yuklash tugadi: ' + ok + ' ta o\'qildi, ' + xato + ' ta xato.') : 'PDF o\'qildi va saqlandi.', xato ? 'warning' : 'success');
+       }
+diff --git a/core/templates/core/sozlamalar.html b/core/templates/core/sozlamalar.html
+index 0a63b6d..5d50fa9 100644
+--- a/core/templates/core/sozlamalar.html
++++ b/core/templates/core/sozlamalar.html
+@@ -50,9 +50,13 @@
+     </tr>{% empty %}<tr><td colspan="5" class="muted" style="text-align:center;padding:28px">Hali guruh yo'q. Botni guruhga qo'shib, «Guruhlarni aniqlash» ni bosing.</td></tr>{% endfor %}
+     </tbody></table></div>
+   {% if rx.sozlamalar_tahrirlash and token_bor %}
+-  <form method="post" class="flex" style="gap:8px;margin-top:14px;align-items:stretch">{% csrf_token %}<input type="hidden" name="amal" value="qosh">
+-    <input type="text" name="chat_id" placeholder="Chat ID ni qo'lda qo'shish (masalan -1001234567890 yoki @guruh_nomi)" style="flex:1;min-width:240px">
+-    <button class="btn sec" type="submit">Qo'shish</button>
++  <form method="post" style="margin-top:14px">{% csrf_token %}<input type="hidden" name="amal" value="qosh">
++    <div class="flex" style="gap:8px;align-items:stretch;flex-wrap:wrap">
++      <input type="text" name="chat_id" placeholder="Chat ID ni qo'lda qo'shish (masalan -1001234567890 yoki @guruh_nomi)" style="flex:2;min-width:240px" required>
++      <input type="text" name="nom" placeholder="Guruh nomi (ixtiyoriy)" style="flex:1;min-width:160px">
++      <button class="btn sec" type="submit">Qo'shish</button>
++    </div>
++    <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12.5px" class="muted"><input type="checkbox" name="majburan" value="1"> Telegram tekshiruvisiz qo'shish (bot hali guruhga qo'shilmagan bo'lsa ham)</label>
+   </form>{% endif %}
+ </div>
+ 
+diff --git a/core/templates/core/yuklash.html b/core/templates/core/yuklash.html
+index b3390ca..a1f4abd 100644
+--- a/core/templates/core/yuklash.html
++++ b/core/templates/core/yuklash.html
+@@ -92,7 +92,7 @@
+       function xato(m) { yuboryapti = false; btn.disabled = false; tt.textContent = 'Xato'; hh.textContent = m; hh.style.color = 'var(--bad)'; }
+       x.onload = function () {
+         var d = null; try { d = JSON.parse(x.responseText); } catch (er) {}
+-        if (x.status === 200 && d && d.ok) { yuboryapti = false; tt.textContent = 'Qabul qilindi. Qayta ishlash serverda fonda boshlandi.'; bar.style.width = '100%'; setTimeout(function () { location.reload(); }, 600); }
++        if (x.status === 200 && d && d.ok) { yuboryapti = false; tt.textContent = 'Qabul qilindi. Qayta ishlash serverda fonda boshlandi.'; bar.style.width = '100%'; try { sessionStorage.setItem('bild_flash', d.soni + ' ta fayl serverga yuklandi. Qayta ishlash orqa fonda boshlandi, tugagach xabar chiqadi.'); } catch (er) {} setTimeout(function () { location.reload(); }, 600); }
+         else if (x.status === 403) xato('Ruxsat yo\'q yoki sessiya tugagan. Sahifani yangilab qayta kiring.');
+         else xato('Server xatosi (' + x.status + '). Qayta urinib ko\'ring.');
+       };
+diff --git a/core/tests.py b/core/tests.py
+index 84ee68e..ebbcbba 100644
+--- a/core/tests.py
++++ b/core/tests.py
+@@ -687,7 +687,7 @@ class FonYuklashTest(TestCase):
+             with open(f"{self.d}/area.xlsx", "rb") as f1, open(f"{self.d}/x.xlsx", "rb") as f2:
+                 r = self.client.post(reverse("yuklash"), {"fayllar": [SimpleUploadedFile("area.xlsx", f1.read()), SimpleUploadedFile("x.xlsx", f2.read())],
+                                                           "sana": "2026-11-12", "fayldan": "1"}, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+-        self.assertEqual((r.status_code, r.json()), (200, {"ok": True, "soni": 2}))
++        self.assertEqual((r.status_code, r.json()), (200, {"ok": True, "soni": 2, "idlar": [1, 2]}))
+         # so'rovda faqat saqlandi: tur hali aniqlanmagan
+         self.assertEqual(list(Yuklama.objects.values_list("tur", "holat")), [("kutilmoqda", "jarayonda")] * 2)
+         importer.sinxron_xom(navbat[0])
+@@ -770,3 +770,65 @@ class BrigadalarMenyuTest(TestCase):
+         self.assertNotContains(r, "Koson brigada A")
+         r = self.client.get(reverse("brigadalar"), {"tuman": "xato"})
+         self.assertContains(r, "Koson brigada A")
++
++
++class BildirishTest(TestCase):
++    def setUp(self):
++        self.u = User.objects.create_superuser("admin", password="Admin@12345")
++        self.client.login(username="admin", password="Admin@12345")
++
++    def test_vazifalar_holati(self):
++        y1 = Yuklama.objects.create(tur="area", sana=datetime.date(2026, 11, 12), fayl_nomi="a.xlsx", yuklagan=self.u, holat="tayyor", xabar="10 ta TP")
++        y2 = Yuklama.objects.create(tur="kutilmoqda", sana=datetime.date(2026, 11, 12), fayl_nomi="b.xlsx", yuklagan=self.u, holat="xato", xabar="Fayl turi aniqlanmadi.\ntraceback")
++        y3 = Yuklama.objects.create(tur="dcu", sana=datetime.date(2026, 11, 12), fayl_nomi="c.xlsx", yuklagan=self.u, holat="jarayonda")
++        TelegramIsh.objects.create(sarlavha="Dinamika", holat="tayyor", jami=2, yuborildi=2, yaratgan=self.u)
++        Yuklama.objects.create(tur="area", sana=datetime.date(2026, 11, 12), fayl_nomi="boshqa.xlsx", holat="tayyor")  # boshqa foydalanuvchiniki
++        d = {i["k"]: i for i in self.client.get(reverse("bildirish")).json()["ishlar"]}
++        self.assertEqual(set(d), {f"y{y1.id}", f"y{y2.id}", f"y{y3.id}", "t1"})
++        self.assertEqual((d[f"y{y1.id}"]["tur"], d[f"y{y2.id}"]["tur"]), ("success", "error"))
++        self.assertIn("aniqlanmadi", d[f"y{y2.id}"]["matn"])
++        self.assertNotIn("traceback", d[f"y{y2.id}"]["matn"])
++        self.assertTrue(d[f"y{y3.id}"]["faol"])
++        self.assertIn("Telegramga yuborildi", d["t1"]["matn"])
++
++    def test_eskirgan_jarayon_yopiladi(self):
++        y = Yuklama.objects.create(tur="dcu", sana=datetime.date(2026, 11, 12), fayl_nomi="c.xlsx", yuklagan=self.u, holat="jarayonda")
++        Yuklama.objects.filter(pk=y.pk).update(vaqt=datetime.datetime.now() - datetime.timedelta(hours=1))
++        d = {i["k"]: i for i in self.client.get(reverse("bildirish")).json()["ishlar"]}
++        self.assertNotIn(f"y{y.pk}", d)  # eski jarayon endi "faol" emas va eskirgan xabar ham ko'rsatilmaydi
++        self.assertEqual(Yuklama.objects.get(pk=y.pk).holat, "xato")
++
++    def test_kirish_talab_va_sahifada_ulanadi(self):
++        self.assertContains(self.client.get(reverse("bosh")), 'data-bild="/bildirishnoma/"')
++        self.client.logout()
++        self.assertEqual(self.client.get(reverse("bildirish")).status_code, 302)
++
++
++class TgTugmalarYuqoridaTest(TestCase):
++    def test_tugmalar_excel_pdf_yonida(self):
++        User.objects.create_superuser("admin", password="Admin@12345")
++        self.client.login(username="admin", password="Admin@12345")
++        Tuman.objects.create(nom="Koson TETK", qisqa="Koson t.", tartib=1)
++        Yuklama.objects.create(tur="dcu", sana=datetime.date(2026, 11, 12), holat="tayyor")
++        r = self.client.get(reverse("dinamika"), {"b": "2026-11-12"})
++        h = r.content.decode()
++        yuqori = h[h.index('<header class="top">'):h.index("</header>")]
++        self.assertIn("tg-btn", yuqori)
++        self.assertIn("format=xlsx", yuqori)
++        self.assertNotIn("tg-qator", h[h.index("</header>"):].split("<style>")[0])
++
++    def test_majburan_qoshish(self):
++        User.objects.create_superuser("admin", password="Admin@12345")
++        self.client.login(username="admin", password="Admin@12345")
++        sz = TelegramSozlama.olish()
++        sz.bot_token = "123:ABC"
++        sz.save()
++
++        def soxta(token, metod, maydonlar=None, fayl=None, timeout=60):
++            raise T.TgXato("Bad Request: chat not found", 400)
++
++        with mock.patch.object(T, "_chaqir", soxta):
++            r = self.client.post(reverse("sozlamalar"), {"amal": "qosh", "chat_id": "-1005550001111", "nom": "Ikkinchi", "majburan": "1"}, follow=True)
++        g = TelegramGuruh.objects.get(chat_id="-1005550001111")
++        self.assertEqual(g.nom, "Ikkinchi")
++        self.assertContains(r, "baribir qo")
+diff --git a/core/urls.py b/core/urls.py
+index 9b7a023..81f70ff 100644
+--- a/core/urls.py
++++ b/core/urls.py
+@@ -18,6 +18,7 @@ urlpatterns = [
+     path("royxat/", views.royxat, name="royxat"),
+     path("xarita/", views.xarita, name="xarita"),
+     path("xarita/api/", views.xarita_api, name="xarita_api"),
++    path("bildirishnoma/", views.bildirish_holat, name="bildirish"),
+     path("yuklash/", views.yuklash, name="yuklash"),
+     path("yuklash/holat/", views.yuklash_holat, name="yuklash_holat"),
+     path("yuklash/<int:pk>/ochirish/", views.yuklama_ochirish, name="yuklama_ochirish"),
+diff --git a/core/views.py b/core/views.py
+index 7b188c1..c1853b4 100644
+--- a/core/views.py
++++ b/core/views.py
+@@ -12,9 +12,10 @@ from django.core.paginator import Paginator
+ from django.db.models import Count, Q
+ from django.http import Http404, HttpResponse, JsonResponse
+ from django.shortcuts import get_object_or_404, redirect, render
++from django.utils import timezone
+ from django.views.decorators.http import require_POST
+ 
+-from .models import TP, Brigada, Hodim, Kuzatuv, Profil, Tuman, Yuklama
++from .models import TP, Brigada, Hodim, Kuzatuv, Profil, RespIsh, TelegramIsh, Tuman, Yuklama
+ from .permissions import (BARCHA, BOLIMLAR, FAQAT_ADMIN, ROL_STANDART, birinchi_sahifa, bor, is_admin, ruxsat_kerak,
+                           ruxsatlar, standart, tuman_ids, tuman_ruxsati)
+ from .services import eksport, importer
+@@ -417,15 +418,71 @@ def yuklash(request):
+             xom.append({"yuklama_id": y.id, "path": yol, "fayl_nomi": f.name, "majburiy": majburiy, "fayldan": fayldan, "forma_sana": forma_sana})
+         importer.fonda_boshlash_xom(xom)
+         if ajax:
+-            return JsonResponse({"ok": True, "soni": len(xom)})
++            return JsonResponse({"ok": True, "soni": len(xom), "idlar": [x["yuklama_id"] for x in xom]})
+         messages.info(request, f"{len(xom)} ta fayl qabul qilindi. Qayta ishlash orqa fonda davom etadi, natijani pastdagi jadvalda ko'rasiz.")
+         return redirect("yuklash")
++    _eskirgan_yuklamalar()
+     royxat = Yuklama.objects.select_related("yuklagan").order_by("-vaqt")[:40]
+     return render(request, "core/yuklash.html", {"royxat": royxat, "bugun": datetime.date.today(), "turlar": Yuklama.TURLAR})
+ 
+ 
++ESKIRDI = datetime.timedelta(minutes=45)  # server qayta ishga tushsa, "jarayonda" qolib ketganlarni yopish uchun
++
++
++def _eskirgan_yuklamalar():
++    Yuklama.objects.filter(holat="jarayonda", vaqt__lt=timezone.now() - ESKIRDI).update(
++        holat="xato", xabar="Jarayon to'xtab qoldi (server qayta ishga tushgan bo'lishi mumkin). Faylni qayta yuklang.")
++
++
++@login_required
++def bildirish_holat(request):
++    """Joriy foydalanuvchi boshlagan orqa fon vazifalari (fayl qayta ishlash, Telegramga yuborish, PDF o'qish).
++    Brauzer shuni kuzatib, vazifa tugaganda «bajarildi / xato» xabarini ko'rsatadi (qaysi sahifada bo'lishidan qat'i nazar)."""
++    _eskirgan_yuklamalar()
++    hozir = timezone.now()
++    yaqin, uzoq = hozir - datetime.timedelta(minutes=15), hozir - datetime.timedelta(hours=2)
++    out = []
++    for y in Yuklama.objects.filter(yuklagan=request.user, vaqt__gte=uzoq).order_by("-vaqt")[:30]:
++        if y.holat != "jarayonda" and y.vaqt < yaqin:
++            continue
++        nom = y.fayl_nomi or "Fayl"
++        if y.holat == "jarayonda":
++            out.append({"k": f"y{y.id}", "faol": True})
++        elif y.holat == "tayyor":
++            tur = "" if y.tur == "kutilmoqda" else f" ({y.get_tur_display()})"
++            out.append({"k": f"y{y.id}", "faol": False, "tur": "success", "matn": f"✅ {nom}{tur}: qayta ishlandi. {y.xabar}"[:400]})
++        else:
++            out.append({"k": f"y{y.id}", "faol": False, "tur": "error", "matn": f"❌ {nom}: {(y.xabar or 'xato').splitlines()[0]}"[:400]})
++    for t in TelegramIsh.objects.filter(yaratgan=request.user, vaqt__gte=uzoq).order_by("-vaqt")[:20]:
++        if t.holat != "jarayonda" and t.vaqt < yaqin:
++            continue
++        k = f"t{t.id}"
++        if t.holat == "jarayonda":
++            out.append({"k": k, "faol": True})
++        elif t.holat == "tayyor":
++            out.append({"k": k, "faol": False, "tur": "success", "matn": f"✅ Telegramga yuborildi: {t.sarlavha} ({t.yuborildi} ta xabar)."})
++        elif t.holat == "qisman":
++            out.append({"k": k, "faol": False, "tur": "warning", "matn": f"⚠️ Telegramga qisman yuborildi ({t.yuborildi}/{t.jami}): {t.xabar.splitlines()[0] if t.xabar else ''}"[:400]})
++        else:
++            sabab = t.xabar.splitlines()[0] if t.xabar else "noma'lum xato"
++            out.append({"k": k, "faol": False, "tur": "error", "matn": f"❌ Telegramga yuborib bo'lmadi: {sabab}"[:400]})
++    for r in RespIsh.objects.filter(yuklagan=request.user, vaqt__gte=uzoq).order_by("-vaqt")[:20]:
++        if r.holat in ("navbatda", "jarayonda"):
++            out.append({"k": f"r{r.id}", "faol": True})
++        elif r.vaqt >= yaqin:
++            k = f"r{r.id}"
++            if r.holat == "tayyor":
++                out.append({"k": k, "faol": False, "tur": "success", "matn": f"✅ Respublika PDF o'qildi: {r.fayl_nomi}"})
++            elif r.holat == "ogoh":
++                out.append({"k": k, "faol": False, "tur": "warning", "matn": f"⚠️ Respublika PDF o'qildi, lekin ogohlantirish bor: {r.fayl_nomi}"})
++            else:
++                out.append({"k": k, "faol": False, "tur": "error", "matn": f"❌ Respublika PDF o'qilmadi: {r.fayl_nomi}. {(r.xabar or '').splitlines()[0] if r.xabar else ''}"[:400]})
++    return JsonResponse({"ishlar": out})
++
++
+ @ruxsat_kerak("yuklash.korish")
+ def yuklash_holat(request):
++    _eskirgan_yuklamalar()
+     out = []
+     for y in Yuklama.objects.order_by("-vaqt")[:40]:
+         out.append({"id": y.id, "holat": y.holat, "holat_txt": y.get_holat_display(), "xabar": y.xabar[:300], "qatorlar": y.qatorlar})
+diff --git a/core/views_tg.py b/core/views_tg.py
+index bb4ddf1..c46b274 100644
+--- a/core/views_tg.py
++++ b/core/views_tg.py
+@@ -88,11 +88,22 @@ def _amal(request, sz, amal):
+         if not cid:
+             messages.error(request, "Chat ID kiriting.")
+             return
+-        chat = T.chat_topish(sz.bot_token, cid)
++        majburan = P.get("majburan") == "1"
++        qol_nom = (P.get("nom") or "").strip()
++        if majburan:
++            # Telegram bilan tekshirmasdan qo'shish (bot hali guruhga qo'shilmagan yoki Telegramga ulanib bo'lmayotgan bo'lsa)
++            nomzod = T.chat_nomzodlari(cid)[0]
++            chat = {"id": nomzod, "title": qol_nom or nomzod, "type": ""}
++            try:
++                chat = T.chat_topish(sz.bot_token, cid)
++            except T.TgXato as e:
++                messages.warning(request, f"Telegram tekshiruvi o'tmadi ({T.xato_matni(e)}) Guruh baribir qo'shildi: unga yuborishdan oldin botni guruhga administrator qilib qo'shing va «Sinov xabari» ni bosing.")
++        else:
++            chat = T.chat_topish(sz.bot_token, cid)
+         if chat.get("type") == "private":
+             messages.error(request, "Bu shaxsiy suhbat Chat ID si, guruh emas. Guruhning Chat ID sini kiriting.")
+             return
+-        nom = chat.get("title") or chat.get("username") or str(chat["id"])
++        nom = qol_nom or chat.get("title") or chat.get("username") or str(chat["id"])
+         _o, yaratildi = TelegramGuruh.objects.update_or_create(chat_id=str(chat["id"]), defaults={"nom": nom[:200], "tur": chat.get("type") or "", "faol": True})
+         holat_txt = "qo'shildi" if yaratildi else "yangilandi"
+         messages.success(request, f"Guruh {holat_txt}: {nom}")

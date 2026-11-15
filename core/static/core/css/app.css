@@ -41,6 +41,8 @@ a:hover { text-decoration: underline; }
 .side-foot .acts a:hover, .side-foot .acts button:hover { background: rgba(255,255,255,.14); }
 .main { margin-left: 248px; flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px; padding: 14px 28px; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.top-act { gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.top { flex-wrap: wrap; }
 .top h1 { margin: 0; font-size: 20px; font-weight: 700; flex: 1; }
 .top h1 small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
 .icon-btn { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); display: inline-grid; place-items: center; cursor: pointer; }

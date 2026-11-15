@@ -92,7 +92,7 @@
       function xato(m) { yuboryapti = false; btn.disabled = false; tt.textContent = 'Xato'; hh.textContent = m; hh.style.color = 'var(--bad)'; }
       x.onload = function () {
         var d = null; try { d = JSON.parse(x.responseText); } catch (er) {}
-        if (x.status === 200 && d && d.ok) { yuboryapti = false; tt.textContent = 'Qabul qilindi. Qayta ishlash serverda fonda boshlandi.'; bar.style.width = '100%'; setTimeout(function () { location.reload(); }, 600); }
+        if (x.status === 200 && d && d.ok) { yuboryapti = false; tt.textContent = 'Qabul qilindi. Qayta ishlash serverda fonda boshlandi.'; bar.style.width = '100%'; try { sessionStorage.setItem('bild_flash', d.soni + ' ta fayl serverga yuklandi. Qayta ishlash orqa fonda boshlandi, tugagach xabar chiqadi.'); } catch (er) {} setTimeout(function () { location.reload(); }, 600); }
         else if (x.status === 403) xato('Ruxsat yo\'q yoki sessiya tugagan. Sahifani yangilab qayta kiring.');
         else xato('Server xatosi (' + x.status + '). Qayta urinib ko\'ring.');
       };

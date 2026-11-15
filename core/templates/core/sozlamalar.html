@@ -50,9 +50,13 @@
     </tr>{% empty %}<tr><td colspan="5" class="muted" style="text-align:center;padding:28px">Hali guruh yo'q. Botni guruhga qo'shib, «Guruhlarni aniqlash» ni bosing.</td></tr>{% endfor %}
     </tbody></table></div>
   {% if rx.sozlamalar_tahrirlash and token_bor %}
-  <form method="post" class="flex" style="gap:8px;margin-top:14px;align-items:stretch">{% csrf_token %}<input type="hidden" name="amal" value="qosh">
-    <input type="text" name="chat_id" placeholder="Chat ID ni qo'lda qo'shish (masalan -1001234567890 yoki @guruh_nomi)" style="flex:1;min-width:240px">
-    <button class="btn sec" type="submit">Qo'shish</button>
+  <form method="post" style="margin-top:14px">{% csrf_token %}<input type="hidden" name="amal" value="qosh">
+    <div class="flex" style="gap:8px;align-items:stretch;flex-wrap:wrap">
+      <input type="text" name="chat_id" placeholder="Chat ID ni qo'lda qo'shish (masalan -1001234567890 yoki @guruh_nomi)" style="flex:2;min-width:240px" required>
+      <input type="text" name="nom" placeholder="Guruh nomi (ixtiyoriy)" style="flex:1;min-width:160px">
+      <button class="btn sec" type="submit">Qo'shish</button>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12.5px" class="muted"><input type="checkbox" name="majburan" value="1"> Telegram tekshiruvisiz qo'shish (bot hali guruhga qo'shilmagan bo'lsa ham)</label>
   </form>{% endif %}
 </div>
 

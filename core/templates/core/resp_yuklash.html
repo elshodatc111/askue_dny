@@ -163,6 +163,7 @@
       if (d.faol) { faolEdi = true; taymer = setTimeout(sora, 1000); return; }
       if (faolEdi) {
         faolEdi = false; royxatniYangila();
+        if (window.bildirKo) d.ishlar.forEach(function (i) { window.bildirKo('r' + i.id); });  // global xabar takrorlanmasin
         var xato = d.ishlar.filter(function (i) { return i.holat === 'xato'; }).length, ok = d.ishlar.length - xato;
         toast(xato ? ('Yuklash tugadi: ' + ok + ' ta o\'qildi, ' + xato + ' ta xato.') : 'PDF o\'qildi va saqlandi.', xato ? 'warning' : 'success');
       }

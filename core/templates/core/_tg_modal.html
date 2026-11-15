@@ -36,7 +36,8 @@
   var csrf = modal.querySelector('input[name=csrfmiddlewaretoken]').value;
   var joriy = null, ISHLAR = {};
   function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-  function toast(t, tur) {
+  function toast(t, tur, key) {
+    if (window.bildirish) { window.bildirish(t, tur, key); return; }
     var c = document.querySelector('.toasts');
     if (!c) { c = document.createElement('div'); c.className = 'toasts'; document.body.appendChild(c); }
     var e = document.createElement('div'); e.className = 'toast ' + (tur || ''); e.textContent = t; c.appendChild(e);
@@ -92,9 +93,10 @@
           setTimeout(sora, 2000); return;
         }
         yuklanish(btn, false); try { sessionStorage.removeItem(kalit(btn)); } catch (e) {}
-        if (d.holat === 'tayyor') toast('Telegramga yuborildi: ' + d.sarlavha + ' (' + d.yuborildi + ' ta xabar).', 'success');
-        else if (d.holat === 'qisman') toast('Qisman yuborildi (' + d.yuborildi + '/' + d.jami + '). Xato: ' + d.xabar.split('\n')[0], 'warning');
-        else toast('Yuborib bo\'lmadi: ' + (d.xabar || 'noma\'lum xato').split('\n')[0], 'error');
+        var tk = 't' + id;
+        if (d.holat === 'tayyor') toast('✅ Telegramga yuborildi: ' + d.sarlavha + ' (' + d.yuborildi + ' ta xabar).', 'success', tk);
+        else if (d.holat === 'qisman') toast('⚠️ Telegramga qisman yuborildi (' + d.yuborildi + '/' + d.jami + '). Xato: ' + d.xabar.split('\n')[0], 'warning', tk);
+        else toast('❌ Telegramga yuborib bo\'lmadi: ' + (d.xabar || 'noma\'lum xato').split('\n')[0], 'error', tk);
       }).catch(function () {
         if (++xatolar < 5) { setTimeout(sora, 4000); return; }
         yuklanish(btn, false); try { sessionStorage.removeItem(kalit(btn)); } catch (e) {}

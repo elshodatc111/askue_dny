@@ -687,7 +687,7 @@ class FonYuklashTest(TestCase):
             with open(f"{self.d}/area.xlsx", "rb") as f1, open(f"{self.d}/x.xlsx", "rb") as f2:
                 r = self.client.post(reverse("yuklash"), {"fayllar": [SimpleUploadedFile("area.xlsx", f1.read()), SimpleUploadedFile("x.xlsx", f2.read())],
                                                           "sana": "2026-11-12", "fayldan": "1"}, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
-        self.assertEqual((r.status_code, r.json()), (200, {"ok": True, "soni": 2}))
+        self.assertEqual((r.status_code, r.json()), (200, {"ok": True, "soni": 2, "idlar": [1, 2]}))
         # so'rovda faqat saqlandi: tur hali aniqlanmagan
         self.assertEqual(list(Yuklama.objects.values_list("tur", "holat")), [("kutilmoqda", "jarayonda")] * 2)
         importer.sinxron_xom(navbat[0])
@@ -770,3 +770,65 @@ class BrigadalarMenyuTest(TestCase):
         self.assertNotContains(r, "Koson brigada A")
         r = self.client.get(reverse("brigadalar"), {"tuman": "xato"})
         self.assertContains(r, "Koson brigada A")
+
+
+class BildirishTest(TestCase):
+    def setUp(self):
+        self.u = User.objects.create_superuser("admin", password="Admin@12345")
+        self.client.login(username="admin", password="Admin@12345")
+
+    def test_vazifalar_holati(self):
+        y1 = Yuklama.objects.create(tur="area", sana=datetime.date(2026, 11, 12), fayl_nomi="a.xlsx", yuklagan=self.u, holat="tayyor", xabar="10 ta TP")
+        y2 = Yuklama.objects.create(tur="kutilmoqda", sana=datetime.date(2026, 11, 12), fayl_nomi="b.xlsx", yuklagan=self.u, holat="xato", xabar="Fayl turi aniqlanmadi.\ntraceback")
+        y3 = Yuklama.objects.create(tur="dcu", sana=datetime.date(2026, 11, 12), fayl_nomi="c.xlsx", yuklagan=self.u, holat="jarayonda")
+        TelegramIsh.objects.create(sarlavha="Dinamika", holat="tayyor", jami=2, yuborildi=2, yaratgan=self.u)
+        Yuklama.objects.create(tur="area", sana=datetime.date(2026, 11, 12), fayl_nomi="boshqa.xlsx", holat="tayyor")  # boshqa foydalanuvchiniki
+        d = {i["k"]: i for i in self.client.get(reverse("bildirish")).json()["ishlar"]}
+        self.assertEqual(set(d), {f"y{y1.id}", f"y{y2.id}", f"y{y3.id}", "t1"})
+        self.assertEqual((d[f"y{y1.id}"]["tur"], d[f"y{y2.id}"]["tur"]), ("success", "error"))
+        self.assertIn("aniqlanmadi", d[f"y{y2.id}"]["matn"])
+        self.assertNotIn("traceback", d[f"y{y2.id}"]["matn"])
+        self.assertTrue(d[f"y{y3.id}"]["faol"])
+        self.assertIn("Telegramga yuborildi", d["t1"]["matn"])
+
+    def test_eskirgan_jarayon_yopiladi(self):
+        y = Yuklama.objects.create(tur="dcu", sana=datetime.date(2026, 11, 12), fayl_nomi="c.xlsx", yuklagan=self.u, holat="jarayonda")
+        Yuklama.objects.filter(pk=y.pk).update(vaqt=datetime.datetime.now() - datetime.timedelta(hours=1))
+        d = {i["k"]: i for i in self.client.get(reverse("bildirish")).json()["ishlar"]}
+        self.assertNotIn(f"y{y.pk}", d)  # eski jarayon endi "faol" emas va eskirgan xabar ham ko'rsatilmaydi
+        self.assertEqual(Yuklama.objects.get(pk=y.pk).holat, "xato")
+
+    def test_kirish_talab_va_sahifada_ulanadi(self):
+        self.assertContains(self.client.get(reverse("bosh")), 'data-bild="/bildirishnoma/"')
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("bildirish")).status_code, 302)
+
+
+class TgTugmalarYuqoridaTest(TestCase):
+    def test_tugmalar_excel_pdf_yonida(self):
+        User.objects.create_superuser("admin", password="Admin@12345")
+        self.client.login(username="admin", password="Admin@12345")
+        Tuman.objects.create(nom="Koson TETK", qisqa="Koson t.", tartib=1)
+        Yuklama.objects.create(tur="dcu", sana=datetime.date(2026, 11, 12), holat="tayyor")
+        r = self.client.get(reverse("dinamika"), {"b": "2026-11-12"})
+        h = r.content.decode()
+        yuqori = h[h.index('<header class="top">'):h.index("</header>")]
+        self.assertIn("tg-btn", yuqori)
+        self.assertIn("format=xlsx", yuqori)
+        self.assertNotIn("tg-qator", h[h.index("</header>"):].split("<style>")[0])
+
+    def test_majburan_qoshish(self):
+        User.objects.create_superuser("admin", password="Admin@12345")
+        self.client.login(username="admin", password="Admin@12345")
+        sz = TelegramSozlama.olish()
+        sz.bot_token = "123:ABC"
+        sz.save()
+
+        def soxta(token, metod, maydonlar=None, fayl=None, timeout=60):
+            raise T.TgXato("Bad Request: chat not found", 400)
+
+        with mock.patch.object(T, "_chaqir", soxta):
+            r = self.client.post(reverse("sozlamalar"), {"amal": "qosh", "chat_id": "-1005550001111", "nom": "Ikkinchi", "majburan": "1"}, follow=True)
+        g = TelegramGuruh.objects.get(chat_id="-1005550001111")
+        self.assertEqual(g.nom, "Ikkinchi")
+        self.assertContains(r, "baribir qo")

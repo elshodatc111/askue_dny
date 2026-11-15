@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="{% static 'core/css/energy.css' %}">
 {% block head %}{% endblock %}
 </head>
-<body data-sect="{{ request.resolver_match.url_name }}">
+<body data-sect="{{ request.resolver_match.url_name }}"{% if request.user.is_authenticated %} data-bild="{% url 'bildirish' %}"{% endif %}>
 {% include "core/_logo.html" %}
 <div class="fon" aria-hidden="true">{% include "core/_fon.html" %}</div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
