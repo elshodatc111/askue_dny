@@ -135,12 +135,12 @@ def xabar_yubor(token, chat_id, matn):
     return _chaqir(token, "sendMessage", {"chat_id": chat_id, "text": matn[:4000]}, timeout=30)
 
 
-def hujjat_yubor(token, chat_id, fayl_nomi, data, izoh="", urinish=4):
-    """Faylni hujjat sifatida yuboradi. 429 (tez-tez yuborish) bo'lsa kutib qayta urinadi.
+def _fayl_yubor(metod, maydon, token, chat_id, fayl_nomi, data, izoh="", urinish=4):
+    """Faylni yuboradi. 429 (tez-tez yuborish) bo'lsa kutib qayta urinadi.
     Qaytaradi: (natija, chat_id) - guruh supergruppaga aylangan bo'lsa chat_id yangilanadi."""
     for n in range(urinish):
         try:
-            res = _chaqir(token, "sendDocument", {"chat_id": chat_id, "caption": izoh[:1000]}, ("document", fayl_nomi, data), timeout=180)
+            res = _chaqir(token, metod, ({"chat_id": chat_id, "caption": izoh[:1000]} if izoh else {"chat_id": chat_id}), (maydon, fayl_nomi, data), timeout=180)
             return res, chat_id
         except TgXato as e:
             if e.kod == 429 and n < urinish - 1:
@@ -156,6 +156,16 @@ def hujjat_yubor(token, chat_id, fayl_nomi, data, izoh="", urinish=4):
             e.yangi_chat_id = chat_id
             raise
     raise TgXato("Yuborib bo'lmadi")
+
+
+def hujjat_yubor(token, chat_id, fayl_nomi, data, izoh="", urinish=4):
+    """Faylni hujjat sifatida yuboradi. Qaytaradi: (natija, chat_id)."""
+    return _fayl_yubor("sendDocument", "document", token, chat_id, fayl_nomi, data, izoh, urinish)
+
+
+def rasm_yubor(token, chat_id, fayl_nomi, data, izoh="", urinish=4):
+    """PNG rasmni (Telegramda darhol ko'rinadigan) fotosurat sifatida yuboradi."""
+    return _fayl_yubor("sendPhoto", "photo", token, chat_id, fayl_nomi, data, izoh, urinish)
 
 
 def guruhlarni_aniqla(token):

@@ -1,0 +1,198 @@
+diff --git a/core/services/telegram.py b/core/services/telegram.py
+index 7cdb0cb..50f66cb 100644
+--- a/core/services/telegram.py
++++ b/core/services/telegram.py
+@@ -135,12 +135,12 @@ def xabar_yubor(token, chat_id, matn):
+     return _chaqir(token, "sendMessage", {"chat_id": chat_id, "text": matn[:4000]}, timeout=30)
+ 
+ 
+-def hujjat_yubor(token, chat_id, fayl_nomi, data, izoh="", urinish=4):
+-    """Faylni hujjat sifatida yuboradi. 429 (tez-tez yuborish) bo'lsa kutib qayta urinadi.
++def _fayl_yubor(metod, maydon, token, chat_id, fayl_nomi, data, izoh="", urinish=4):
++    """Faylni yuboradi. 429 (tez-tez yuborish) bo'lsa kutib qayta urinadi.
+     Qaytaradi: (natija, chat_id) - guruh supergruppaga aylangan bo'lsa chat_id yangilanadi."""
+     for n in range(urinish):
+         try:
+-            res = _chaqir(token, "sendDocument", {"chat_id": chat_id, "caption": izoh[:1000]}, ("document", fayl_nomi, data), timeout=180)
++            res = _chaqir(token, metod, ({"chat_id": chat_id, "caption": izoh[:1000]} if izoh else {"chat_id": chat_id}), (maydon, fayl_nomi, data), timeout=180)
+             return res, chat_id
+         except TgXato as e:
+             if e.kod == 429 and n < urinish - 1:
+@@ -158,6 +158,16 @@ def hujjat_yubor(token, chat_id, fayl_nomi, data, izoh="", urinish=4):
+     raise TgXato("Yuborib bo'lmadi")
+ 
+ 
++def hujjat_yubor(token, chat_id, fayl_nomi, data, izoh="", urinish=4):
++    """Faylni hujjat sifatida yuboradi. Qaytaradi: (natija, chat_id)."""
++    return _fayl_yubor("sendDocument", "document", token, chat_id, fayl_nomi, data, izoh, urinish)
++
++
++def rasm_yubor(token, chat_id, fayl_nomi, data, izoh="", urinish=4):
++    """PNG rasmni (Telegramda darhol ko'rinadigan) fotosurat sifatida yuboradi."""
++    return _fayl_yubor("sendPhoto", "photo", token, chat_id, fayl_nomi, data, izoh, urinish)
++
++
+ def guruhlarni_aniqla(token):
+     """Bot a'zo bo'lgan guruh/kanallarni getUpdates orqali topadi.
+     Qaytaradi: (topilganlar [{chat_id, nom, tur}], chiqarilganlar [chat_id])."""
+diff --git a/core/services/tg_yuborish.py b/core/services/tg_yuborish.py
+index 833d52b..dcec5ff 100644
+--- a/core/services/tg_yuborish.py
++++ b/core/services/tg_yuborish.py
+@@ -1,4 +1,5 @@
+ """Dinamika va Respublika dinamikasi fayllarini Telegram guruhlariga orqa fonda yuborish."""
++import io
+ import json
+ import re
+ import threading
+@@ -25,6 +26,38 @@ def _toza(t):
+     return re.sub(r"[^A-Za-z0-9_-]+", "_", eksport._lotin(t)).strip("_") or "tuman"
+ 
+ 
++def _davr(a, b):
++    """Fayl nomi uchun sana oralig'i: «14.11.2026 - 15.11.2026» (solishtirilmasa faqat joriy sana)."""
++    return f"{_d(a)} - {_d(b)}" if a else _d(b)
++
++
++def _fayl_nomi_toza(t):
++    """Telegram/Windows fayl nomida mumkin bo'lmagan belgilarni (/ \\ ? * < > | ") tozalaydi; ':' qoladi."""
++    return re.sub(r'[\\/?*<>|"]+', "", t).strip()
++
++
++def pdf_dan_rasm(pdf_bytes, masshtab=3.0):
++    """PDF ning birinchi sahifasini PNG ga aylantiradi (bo'sh chetlari kesiladi). Qo'shimcha kutubxona kerak emas:
++    pdfplumber bilan birga o'rnatiladigan pypdfium2 ishlatiladi."""
++    import pypdfium2 as pdfium
++    from PIL import Image, ImageChops
++
++    doc = pdfium.PdfDocument(pdf_bytes)
++    try:
++        im = doc[0].render(scale=masshtab).to_pil().convert("RGB")
++    finally:
++        doc.close()
++    fon = Image.new("RGB", im.size, (255, 255, 255))
++    quti = ImageChops.difference(im, fon).getbbox()
++    if quti:
++        p = int(8 * masshtab)
++        quti = (max(quti[0] - p, 0), max(quti[1] - p, 0), min(quti[2] + p, im.width), min(quti[3] + p, im.height))
++        im = im.crop(quti)
++    out = io.BytesIO()
++    im.save(out, "PNG", optimize=True)
++    return out.getvalue()
++
++
+ def _solishtirma(a):
+     return f"🔁 Solishtirish sanasi: {_d(a)}" if a else "🔁 Solishtirilmagan"
+ 
+@@ -42,23 +75,24 @@ def dinamika_fayllari(tur, a, b, ruxsat, tuman_id):
+ 
+     sana = b.strftime("%Y-%m-%d")
+     if tur == "tumanlar":
++        # 1) tumanlar kesimidagi umumiy dinamika rasmlari (Konsentrator va GPRS; Aloqadan chiqib ketgan va Primichka)
++        for k, el in zip(S.SAHIFALAR, elementlar(None, "")):
++            yield f"Tumanlar dinamikasi {k} - {_davr(a, b)}.png", pdf_dan_rasm(eksport.kopchilik_pdf([el])), ""
++        # 2) har bir tuman (ESP) uchun brigadalar kesimidagi PDF
+         qs = Tuman.objects.all()
+         if ruxsat is not None:
+             qs = qs.filter(pk__in=ruxsat)
+         for t in qs:
+-            nom = f"{_toza(t.korsat)}_dinamika_{_d(b)}_{_d(a) + '_bilan' if a else 'solishtirmasiz'}.pdf"
+-            izoh = f"📍 {t.korsat}: brigadalar kesimida dinamika\n📅 Joriy sana: {_d(b)}\n{_solishtirma(a)}"
+-            yield nom, eksport.kopchilik_pdf(elementlar(t.id, t.korsat)), izoh
++            yield _fayl_nomi_toza(f"{t.korsat} - Dinamika: {_davr(a, b)}") + ".pdf", eksport.kopchilik_pdf(elementlar(t.id, t.korsat)), ""
+         return
+     tuman = Tuman.objects.filter(pk=tuman_id).first() if tuman_id else None
+     nom_t = tuman.korsat if tuman else ""
+-    hudud = nom_t or "Qashqadaryo HETK"
+-    asos = f"dinamika_{_toza(nom_t) + '_' if nom_t else ''}{sana}"
++    asos = _fayl_nomi_toza(f"{nom_t} - Dinamika: {_davr(a, b)}" if nom_t else f"Kunlik Dinamika {_davr(a, b)}")
+     if tur == "xlsx":
+         resp = eksport.kopchilik_xlsx(elementlar(tuman_id, nom_t), asos + ".xlsx")
+-        yield asos + ".xlsx", resp.content, f"📊 Brigadalar dinamikasi (Excel)\n📍 {hudud}\n📅 Joriy sana: {_d(b)}\n{_solishtirma(a)}"
++        yield asos + ".xlsx", resp.content, ""
+     else:
+-        yield asos + ".pdf", eksport.kopchilik_pdf(elementlar(tuman_id, nom_t)), f"📄 Brigadalar dinamikasi (PDF)\n📍 {hudud}\n📅 Joriy sana: {_d(b)}\n{_solishtirma(a)}"
++        yield asos + ".pdf", eksport.kopchilik_pdf(elementlar(tuman_id, nom_t)), ""
+ 
+ 
+ def resp_fayllari(tur, a, b):
+@@ -73,9 +107,9 @@ def resp_fayllari(tur, a, b):
+     jadvallar = R.barcha_jadvallar(data, baza)
+     izoh_oxiri = f"\n📅 Hisobot sanasi: {_d(b)}\n{_solishtirma(a if ya else None)}"
+     if tur == "xlsx":
+-        yield RE.fayl_nomi(meta, "xlsx"), RE.xlsx(jadvallar, meta), "📊 Respublika dinamikasi (Excel)" + izoh_oxiri
++        yield RE.fayl_nomi(meta, "xlsx"), RE.xlsx(jadvallar, meta), ""
+     else:
+-        yield RE.fayl_nomi(meta, "pdf"), RE.pdf(jadvallar, meta), "📄 Respublika dinamikasi (PDF)" + izoh_oxiri
++        yield RE.fayl_nomi(meta, "pdf"), RE.pdf(jadvallar, meta), ""
+ 
+ 
+ # ---------------------------------------------------------------- yuborish
+@@ -104,7 +138,10 @@ def _bajar(ish_id, guruh_idlar, fayllar_fn):
+             for nom, data, izoh in fayllar:
+                 for g in guruhlar:
+                     try:
+-                        _res, yangi = T.hujjat_yubor(token, g.chat_id, nom, data, izoh)
++                        if nom.lower().endswith(".png"):
++                            _res, yangi = T.rasm_yubor(token, g.chat_id, nom, data, izoh)
++                        else:
++                            _res, yangi = T.hujjat_yubor(token, g.chat_id, nom, data, izoh)
+                         if yangi != g.chat_id:  # guruh supergruppaga aylangan
+                             g.chat_id = yangi
+                             g.save(update_fields=["chat_id"])
+diff --git a/core/tests.py b/core/tests.py
+index c097772..1f92130 100644
+--- a/core/tests.py
++++ b/core/tests.py
+@@ -471,27 +471,31 @@ class TelegramTest(TestCase):
+         h = self._hujjatlar()
+         self.assertEqual([m["chat_id"] for m, _f in h], ["-1001", "-1002"])
+         self.assertTrue(h[0][1][1].endswith(".xlsx") and h[0][1][2][:2] == b"PK")
+-        self.assertIn("12.11.2026", h[0][0]["caption"])
+-        self.assertIn("09.11.2026", h[0][0]["caption"])
++        self.assertEqual(h[0][1][1], "Kunlik Dinamika 09.11.2026 - 12.11.2026.xlsx")
++        self.assertNotIn("caption", h[0][0])
+         self.qongiroqlar.clear()
+         self._yubor(tur="pdf", guruh=[self.g1.id])
+         h = self._hujjatlar()
+         self.assertEqual(len(h), 1)
+         self.assertTrue(h[0][1][2].startswith(b"%PDF"))
++        self.assertEqual(h[0][1][1], "Kunlik Dinamika 09.11.2026 - 12.11.2026.pdf")
+ 
+-    def test_tumanlar_alohida_pdf(self):
++    def test_tumanlar_rasm_va_pdf(self):
+         self._yubor(tur="tumanlar")
+         ish = TelegramIsh.objects.get()
+-        self.assertEqual((ish.holat, ish.jami, ish.yuborildi), ("tayyor", 4, 4))
++        # har bir guruhga: 2 ta rasm (tumanlar kesimi) + 2 ta tuman PDF
++        self.assertEqual((ish.holat, ish.jami, ish.yuborildi), ("tayyor", 8, 8))
++        hammasi = [(metod, m, f) for metod, m, f in self.qongiroqlar]
++        birinchi = [metod for metod, _m, _f in hammasi[:4]]
++        self.assertEqual(birinchi, ["sendPhoto", "sendPhoto", "sendPhoto", "sendPhoto"])  # rasmlar avval
++        for metod, m, f in hammasi[:4]:
++            self.assertTrue(f[2].startswith(b"\x89PNG"))
+         h = self._hujjatlar()
+         nomlar = [f[1] for _m, f in h]
+-        self.assertTrue(all(n.endswith(".pdf") and "2026" in n for n in nomlar))
+-        self.assertEqual(sum("Koson" in n for n in nomlar), 2)
+-        self.assertEqual(sum("Qarshi" in n for n in nomlar), 2)
++        self.assertEqual(sum(n == "Koson t. - Dinamika: 09.11.2026 - 12.11.2026.pdf" for n in nomlar), 2)
++        self.assertEqual(sum(n == "Qarshi t. - Dinamika: 09.11.2026 - 12.11.2026.pdf" for n in nomlar), 2)
+         for m, f in h:
+-            tuman = "Koson t." if "Koson" in f[1] else "Qarshi t."
+-            self.assertIn(tuman, m["caption"])
+-            self.assertIn("09.11.2026", m["caption"])
++            self.assertNotIn("caption", m)
+             self.assertTrue(f[2].startswith(b"%PDF"))
+ 
+     def test_qisman_xato(self):
+@@ -514,8 +518,7 @@ class TelegramTest(TestCase):
+             h = self._hujjatlar()
+             self.assertEqual(len(h), 1)
+             self.assertTrue(h[0][1][2].startswith(bosh))
+-            self.assertIn("Respublika dinamikasi", h[0][0]["caption"])
+-            self.assertIn("09.11.2026", h[0][0]["caption"])
++            self.assertNotIn("caption", h[0][0])
+         self.assertEqual(TelegramIsh.objects.filter(holat="tayyor").count(), 2)
+         self.assertEqual(self._yubor(manba="resp", b="2026-11-20").status_code, 200)
+         self.assertEqual(TelegramIsh.objects.filter(holat="xato").count(), 1)  # sana uchun hisobot yo'q

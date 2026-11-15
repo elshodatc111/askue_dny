@@ -471,27 +471,31 @@ class TelegramTest(TestCase):
         h = self._hujjatlar()
         self.assertEqual([m["chat_id"] for m, _f in h], ["-1001", "-1002"])
         self.assertTrue(h[0][1][1].endswith(".xlsx") and h[0][1][2][:2] == b"PK")
-        self.assertIn("12.11.2026", h[0][0]["caption"])
-        self.assertIn("09.11.2026", h[0][0]["caption"])
+        self.assertEqual(h[0][1][1], "Kunlik Dinamika 09.11.2026 - 12.11.2026.xlsx")
+        self.assertNotIn("caption", h[0][0])
         self.qongiroqlar.clear()
         self._yubor(tur="pdf", guruh=[self.g1.id])
         h = self._hujjatlar()
         self.assertEqual(len(h), 1)
         self.assertTrue(h[0][1][2].startswith(b"%PDF"))
+        self.assertEqual(h[0][1][1], "Kunlik Dinamika 09.11.2026 - 12.11.2026.pdf")
 
-    def test_tumanlar_alohida_pdf(self):
+    def test_tumanlar_rasm_va_pdf(self):
         self._yubor(tur="tumanlar")
         ish = TelegramIsh.objects.get()
-        self.assertEqual((ish.holat, ish.jami, ish.yuborildi), ("tayyor", 4, 4))
+        # har bir guruhga: 2 ta rasm (tumanlar kesimi) + 2 ta tuman PDF
+        self.assertEqual((ish.holat, ish.jami, ish.yuborildi), ("tayyor", 8, 8))
+        hammasi = [(metod, m, f) for metod, m, f in self.qongiroqlar]
+        birinchi = [metod for metod, _m, _f in hammasi[:4]]
+        self.assertEqual(birinchi, ["sendPhoto", "sendPhoto", "sendPhoto", "sendPhoto"])  # rasmlar avval
+        for metod, m, f in hammasi[:4]:
+            self.assertTrue(f[2].startswith(b"\x89PNG"))
         h = self._hujjatlar()
         nomlar = [f[1] for _m, f in h]
-        self.assertTrue(all(n.endswith(".pdf") and "2026" in n for n in nomlar))
-        self.assertEqual(sum("Koson" in n for n in nomlar), 2)
-        self.assertEqual(sum("Qarshi" in n for n in nomlar), 2)
+        self.assertEqual(sum(n == "Koson t. - Dinamika: 09.11.2026 - 12.11.2026.pdf" for n in nomlar), 2)
+        self.assertEqual(sum(n == "Qarshi t. - Dinamika: 09.11.2026 - 12.11.2026.pdf" for n in nomlar), 2)
         for m, f in h:
-            tuman = "Koson t." if "Koson" in f[1] else "Qarshi t."
-            self.assertIn(tuman, m["caption"])
-            self.assertIn("09.11.2026", m["caption"])
+            self.assertNotIn("caption", m)
             self.assertTrue(f[2].startswith(b"%PDF"))
 
     def test_qisman_xato(self):
@@ -514,8 +518,7 @@ class TelegramTest(TestCase):
             h = self._hujjatlar()
             self.assertEqual(len(h), 1)
             self.assertTrue(h[0][1][2].startswith(bosh))
-            self.assertIn("Respublika dinamikasi", h[0][0]["caption"])
-            self.assertIn("09.11.2026", h[0][0]["caption"])
+            self.assertNotIn("caption", h[0][0])
         self.assertEqual(TelegramIsh.objects.filter(holat="tayyor").count(), 2)
         self.assertEqual(self._yubor(manba="resp", b="2026-11-20").status_code, 200)
         self.assertEqual(TelegramIsh.objects.filter(holat="xato").count(), 1)  # sana uchun hisobot yo'q
