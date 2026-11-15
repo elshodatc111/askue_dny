@@ -519,6 +519,7 @@ class TelegramTest(TestCase):
             self.assertEqual(len(h), 1)
             self.assertTrue(h[0][1][2].startswith(bosh))
             self.assertNotIn("caption", h[0][0])
+            self.assertEqual(h[0][1][1], "Qashqadaryo HETK Respublika Dinamika: 09.11.2026 - 12.11.2026." + tur)
         self.assertEqual(TelegramIsh.objects.filter(holat="tayyor").count(), 2)
         self.assertEqual(self._yubor(manba="resp", b="2026-11-20").status_code, 200)
         self.assertEqual(TelegramIsh.objects.filter(holat="xato").count(), 1)  # sana uchun hisobot yo'q

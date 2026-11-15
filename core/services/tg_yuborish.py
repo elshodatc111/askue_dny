@@ -106,10 +106,11 @@ def resp_fayllari(tur, a, b):
     meta = {"sana": b, "baza": a if ya else None, "yuklangan": yb.vaqt}
     jadvallar = R.barcha_jadvallar(data, baza)
     izoh_oxiri = f"\n📅 Hisobot sanasi: {_d(b)}\n{_solishtirma(a if ya else None)}"
+    asos = _fayl_nomi_toza(f"Qashqadaryo HETK Respublika Dinamika: {_davr(a if ya else None, b)}")
     if tur == "xlsx":
-        yield RE.fayl_nomi(meta, "xlsx"), RE.xlsx(jadvallar, meta), ""
+        yield asos + ".xlsx", RE.xlsx(jadvallar, meta), ""
     else:
-        yield RE.fayl_nomi(meta, "pdf"), RE.pdf(jadvallar, meta), ""
+        yield asos + ".pdf", RE.pdf(jadvallar, meta), ""
 
 
 # ---------------------------------------------------------------- yuborish

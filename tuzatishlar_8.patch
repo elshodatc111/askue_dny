@@ -1,0 +1,30 @@
+diff --git a/core/services/tg_yuborish.py b/core/services/tg_yuborish.py
+index dcec5ff..f832723 100644
+--- a/core/services/tg_yuborish.py
++++ b/core/services/tg_yuborish.py
+@@ -106,10 +106,11 @@ def resp_fayllari(tur, a, b):
+     meta = {"sana": b, "baza": a if ya else None, "yuklangan": yb.vaqt}
+     jadvallar = R.barcha_jadvallar(data, baza)
+     izoh_oxiri = f"\n📅 Hisobot sanasi: {_d(b)}\n{_solishtirma(a if ya else None)}"
++    asos = _fayl_nomi_toza(f"Qashqadaryo HETK Respublika Dinamika: {_davr(a if ya else None, b)}")
+     if tur == "xlsx":
+-        yield RE.fayl_nomi(meta, "xlsx"), RE.xlsx(jadvallar, meta), ""
++        yield asos + ".xlsx", RE.xlsx(jadvallar, meta), ""
+     else:
+-        yield RE.fayl_nomi(meta, "pdf"), RE.pdf(jadvallar, meta), ""
++        yield asos + ".pdf", RE.pdf(jadvallar, meta), ""
+ 
+ 
+ # ---------------------------------------------------------------- yuborish
+diff --git a/core/tests.py b/core/tests.py
+index 1f92130..257b90b 100644
+--- a/core/tests.py
++++ b/core/tests.py
+@@ -519,6 +519,7 @@ class TelegramTest(TestCase):
+             self.assertEqual(len(h), 1)
+             self.assertTrue(h[0][1][2].startswith(bosh))
+             self.assertNotIn("caption", h[0][0])
++            self.assertEqual(h[0][1][1], "Qashqadaryo HETK Respublika Dinamika: 09.11.2026 - 12.11.2026." + tur)
+         self.assertEqual(TelegramIsh.objects.filter(holat="tayyor").count(), 2)
+         self.assertEqual(self._yubor(manba="resp", b="2026-11-20").status_code, 200)
+         self.assertEqual(TelegramIsh.objects.filter(holat="xato").count(), 1)  # sana uchun hisobot yo'q
