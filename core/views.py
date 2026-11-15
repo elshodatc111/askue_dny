@@ -404,24 +404,21 @@ def yuklash(request):
         if majburiy and len(fayllar) > 1:
             majburiy = None
         os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-        ishlar = []
+        ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+        xom = []
+        # So'rov ichida faqat faylni diskka saqlaymiz; turini aniqlash va qayta ishlash orqa fonda bajariladi.
         for f in fayllar:
             yol = os.path.join(settings.UPLOAD_DIR, f"{uuid.uuid4().hex}.xlsx")
             with open(yol, "wb") as out:
                 for chunk in f.chunks():
                     out.write(chunk)
-            try:
-                info = importer.aniqlash(yol, f.name, majburiy)
-            except Exception as e:  # noqa
-                messages.error(request, f"{f.name}: {e}")
-                os.remove(yol)
-                continue
-            sana = (info["sana"] if fayldan and info["sana"] else None) or forma_sana or datetime.date.today()
-            y = Yuklama.objects.create(tur=info["tur"], sana=sana, fayl_nomi=f.name[:255], yuklagan=request.user, holat="jarayonda", xabar="Navbatda...")
-            ishlar.append({"yuklama_id": y.id, "path": yol, "header": info["header"], "tur": info["tur"]})
-            messages.info(request, f"{f.name}: {y.get_tur_display()}, sana {_sana_txt(sana)}. Qayta ishlanmoqda...")
-        if ishlar:
-            importer.fonda_boshlash(ishlar)
+            y = Yuklama.objects.create(tur=majburiy or "kutilmoqda", sana=forma_sana or datetime.date.today(), fayl_nomi=f.name[:255],
+                                       yuklagan=request.user, holat="jarayonda", xabar="Navbatda...")
+            xom.append({"yuklama_id": y.id, "path": yol, "fayl_nomi": f.name, "majburiy": majburiy, "fayldan": fayldan, "forma_sana": forma_sana})
+        importer.fonda_boshlash_xom(xom)
+        if ajax:
+            return JsonResponse({"ok": True, "soni": len(xom)})
+        messages.info(request, f"{len(xom)} ta fayl qabul qilindi. Qayta ishlash orqa fonda davom etadi, natijani pastdagi jadvalda ko'rasiz.")
         return redirect("yuklash")
     royxat = Yuklama.objects.select_related("yuklagan").order_by("-vaqt")[:40]
     return render(request, "core/yuklash.html", {"royxat": royxat, "bugun": datetime.date.today(), "turlar": Yuklama.TURLAR})
@@ -456,17 +453,29 @@ def _tuman_tekshir(request, tuman_id):
         raise PermissionDenied
 
 
+def _brig_menyu(user, tanlangan=None):
+    """Yon paneldagi «Brigadalar» ostki menyusi: Barcha brigadalar + har bir tuman (brigada soni bilan)."""
+    tumanlar = list(_ruxsatli_tumanlar(user).annotate(brig_soni=Count("brigadalar", distinct=True)))
+    return {"tumanlar": tumanlar, "jami": sum(t.brig_soni for t in tumanlar), "tanlangan": tanlangan}
+
+
 @ruxsat_kerak("brigadalar.korish")
 def brigadalar(request):
     tumanlar = _ruxsatli_tumanlar(request.user)
     tid = request.GET.get("tuman")
-    tuman = tumanlar.filter(pk=tid).first() if tid and tid.isdigit() else tumanlar.first()
-    royxat = []
-    if tuman:
-        for br in Brigada.objects.filter(tuman=tuman).prefetch_related("hodimlar").annotate(tp_soni=Count("tplar")).order_by("raqam"):
-            royxat.append(br)
-    yoq = TP.objects.filter(tuman=tuman, brigada__isnull=True).count() if tuman else 0
-    return render(request, "core/brigadalar.html", {"tumanlar": tumanlar, "tuman": tuman, "royxat": royxat, "yoq": yoq})
+    tuman = tumanlar.filter(pk=tid).first() if tid and tid.isdigit() else None  # tanlanmasa - barcha brigadalar
+    qs = Brigada.objects.filter(tuman=tuman) if tuman else Brigada.objects.filter(tuman__in=tumanlar)
+    qs = qs.select_related("tuman").prefetch_related("hodimlar").annotate(tp_soni=Count("tplar")).order_by("tuman__tartib", "tuman__nom", "raqam")
+    guruhlar = []
+    for br in qs:
+        if not guruhlar or guruhlar[-1]["tuman"].id != br.tuman_id:
+            guruhlar.append({"tuman": br.tuman, "royxat": []})
+        guruhlar[-1]["royxat"].append(br)
+    yoq = TP.objects.filter(tuman=tuman, brigada__isnull=True).count() if tuman else TP.objects.filter(tuman__in=tumanlar, brigada__isnull=True).count()
+    return render(request, "core/brigadalar.html", {
+        "tumanlar": tumanlar, "tuman": tuman, "guruhlar": guruhlar, "jami": sum(len(g["royxat"]) for g in guruhlar), "yoq": yoq,
+        "brig_menyu": _brig_menyu(request.user, tuman.id if tuman else None),
+    })
 
 
 @ruxsat_kerak("brigadalar.yaratish")
@@ -503,7 +512,7 @@ def brigada_tahrir(request, pk):
         return redirect(f"/brigadalar/?tuman={b.tuman_id}")
     matn = "\n".join("; ".join(x for x in [h.ism, h.pinfl, h.telefon] if x or True).rstrip("; ") for h in b.hodimlar.all())
     boshqalar = Brigada.objects.filter(tuman=b.tuman).exclude(pk=b.pk).order_by("raqam")
-    return render(request, "core/brigada_tahrir.html", {"b": b, "matn": matn, "boshqalar": boshqalar, "tp_soni": b.tplar.count()})
+    return render(request, "core/brigada_tahrir.html", {"b": b, "matn": matn, "boshqalar": boshqalar, "tp_soni": b.tplar.count(), "brig_menyu": _brig_menyu(request.user, b.tuman_id)})
 
 
 @ruxsat_kerak("brigadalar.ochirish")

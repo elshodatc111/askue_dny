@@ -40,7 +40,7 @@ def sozlamalar(request):
         try:
             _amal(request, sz, amal)
         except T.TgXato as e:
-            messages.error(request, f"Telegram: {e}")
+            messages.error(request, f"Telegram: {T.xato_matni(e)}")
         return redirect("sozlamalar")
     _eskirganlarni_yop()
     return render(request, "core/sozlamalar.html", {
@@ -88,7 +88,10 @@ def _amal(request, sz, amal):
         if not cid:
             messages.error(request, "Chat ID kiriting.")
             return
-        chat = T.chat_haqida(sz.bot_token, cid)
+        chat = T.chat_topish(sz.bot_token, cid)
+        if chat.get("type") == "private":
+            messages.error(request, "Bu shaxsiy suhbat Chat ID si, guruh emas. Guruhning Chat ID sini kiriting.")
+            return
         nom = chat.get("title") or chat.get("username") or str(chat["id"])
         _o, yaratildi = TelegramGuruh.objects.update_or_create(chat_id=str(chat["id"]), defaults={"nom": nom[:200], "tur": chat.get("type") or "", "faol": True})
         holat_txt = "qo'shildi" if yaratildi else "yangilandi"

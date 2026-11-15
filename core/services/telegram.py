@@ -1,6 +1,7 @@
 """Telegram Bot API bilan ishlash (qo'shimcha kutubxonasiz, faqat standart urllib)."""
 import json
 import mimetypes
+import re
 import time
 import urllib.error
 import urllib.request
@@ -58,6 +59,76 @@ def bot_haqida(token):
 
 def chat_haqida(token, chat_id):
     return _chaqir(token, "getChat", {"chat_id": chat_id}, timeout=20)
+
+
+_NOLLAR = dict.fromkeys(map(ord, "\u200b\u200c\u200d\u2060\ufeff\u00a0"), None)
+
+
+def chat_nomzodlari(matn):
+    """Foydalanuvchi kiritgan matndan (Chat ID, @username, t.me havolasi) Telegram uchun mumkin bo'lgan chat_id lar ro'yxati."""
+    m = (matn or "").translate(_NOLLAR).strip().strip("\"'`<>[]() ").replace("\u2212", "-").replace("\u2013", "-").replace("\u2014", "-")
+    if not m:
+        return []
+    h = re.match(r"^(?:https?://)?(?:www\.)?(?:t|telegram)\.me/(.+)$", m, re.I)
+    if h:
+        yol = h.group(1).split("?")[0].strip("/")
+        if yol.startswith("+") or yol.lower().startswith("joinchat"):
+            raise TgXato("Bu taklif havolasi. Taklif havolasidan Chat ID olib bo'lmaydi: guruhning Chat ID sini (masalan -1001234567890) yoki ochiq guruh bo'lsa @username ni kiriting.")
+        c = re.match(r"^c/(\d+)", yol)
+        if c:
+            return ["-100" + c.group(1)]
+        m = "@" + yol.split("/")[0]
+    if m.startswith("@"):
+        return [m]
+    raqam = re.sub(r"\s+", "", m)
+    if re.fullmatch(r"-?\d+", raqam):
+        if raqam.startswith("-100"):
+            return [raqam]
+        if raqam.startswith("-"):
+            d = raqam[1:]
+            return [raqam, "-100" + d] if len(d) >= 10 else [raqam]
+        return ["-100" + raqam, "-" + raqam]
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{3,}", m):
+        return ["@" + m]
+    raise TgXato("Chat ID noto'g'ri ko'rinishda. Masalan: -1001234567890 (yoki ochiq guruh uchun @guruh_nomi).")
+
+
+def chat_topish(token, matn):
+    """Kiritilgan matn bo'yicha guruhni topadi (turli ko'rinishlarni sinab ko'radi,
+    oddiy guruh supergruppaga aylangan bo'lsa yangi ID ga o'tadi). getChat natijasini qaytaradi."""
+    oxirgi = None
+    for cid in chat_nomzodlari(matn):
+        for _ in range(2):
+            try:
+                return chat_haqida(token, cid)
+            except TgXato as e:
+                oxirgi = e
+                yangi = (e.parametrlar or {}).get("migrate_to_chat_id")
+                if yangi:
+                    cid = str(yangi)
+                    continue
+                if e.kod is None:  # tarmoq xatosi: boshqa ko'rinishni sinashning foydasi yo'q
+                    raise
+                break
+    raise oxirgi or TgXato("Guruh topilmadi")
+
+
+def xato_matni(e):
+    """Telegram xatosini tushunarli o'zbekcha matnga aylantiradi."""
+    t = str(e)
+    k = t.lower()
+    if "chat not found" in k:
+        return ("Guruh topilmadi: bot bu guruhga qo'shilmagan yoki Chat ID noto'g'ri. Botni guruhga qo'shib administrator qiling, "
+                "so'ng guruhga bitta xabar yozing va «Guruhlarni aniqlash» ni bosing yoki to'g'ri Chat ID ni kiriting "
+                "(supergruppa ID si -100 bilan boshlanadi).")
+    if "bot was kicked" in k or "bot is not a member" in k or "not enough rights" in k or "have no rights" in k:
+        return f"Bot bu guruhda yo'q yoki huquqi yetarli emas (guruhga administrator qilib qo'shing). Telegram: {t}"
+    if "unauthorized" in k or e.kod == 401:
+        return "Bot tokeni noto'g'ri yoki bekor qilingan. Sozlamalarda tokenni yangilang."
+    if "terminated by other getupdates" in k or "webhook is active" in k or e.kod == 409:
+        return ("Bu bot boshqa joyda ishlatilmoqda (webhook yoki boshqa getUpdates). Guruhni aniqlab bo'lmaydi: "
+                "Chat ID ni qo'lda kiriting.")
+    return t
 
 
 def xabar_yubor(token, chat_id, matn):

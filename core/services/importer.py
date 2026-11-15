@@ -359,23 +359,38 @@ def import_area(path, header, yuklama, res):
             yangi_br += 1
     # 2) TP lar
     yangi_tp = res.tayyorla(recs)
-    # 3) brigadasi yo'q TP larga brigada biriktirish
+    # 3) TP larni brigadalarga sinxronlash: fayl "manba" hisoblanadi.
+    #    - fayldagi TP o'z brigadasiga biriktiriladi (yangi TP qo'shiladi, boshqa brigadada bo'lsa ko'chiriladi);
+    #    - avval fayldan olingan brigadalarda turgan, lekin yangi faylda yo'q TP lar brigadadan chiqariladi.
+    #    Brigada nomi, tartib raqami, telefon va hodimlar (F.I.Sh.) O'ZGARTIRILMAYDI.
     upd = []
     korilgan = set()
+    fayl_tumanlari = set()
     for r in recs:
         tp = res.tp(r)
+        fayl_tumanlari.add(tp.tuman_id)
         if tp.id in korilgan:
             continue
         korilgan.add(tp.id)
-        if tp.brigada_id is None and r["mgr"]:
-            bid = res.brig.get((tp.tuman_id, mas_kalit(r["mgr"])))
-            if bid:
-                tp.brigada_id = bid
-                upd.append(tp)
+        bid = res.brig.get((tp.tuman_id, mas_kalit(r["mgr"]))) if r["mgr"] else None
+        if bid is not None and tp.brigada_id != bid:
+            tp.brigada_id = bid
+            upd.append(tp)
     for i in range(0, len(upd), BATCH):
         TP.objects.bulk_update(upd[i : i + BATCH], ["brigada"])
+    ketdi = 0
+    if korilgan:
+        # faqat faylda uchragan tumanlar va faylga bog'liq (CAS dan yaratilgan) brigadalar tekshiriladi
+        qolgan = [
+            tp_id for tp_id in TP.objects.filter(tuman_id__in=fayl_tumanlari, brigada__isnull=False).exclude(brigada__manba_kalit="").values_list("id", flat=True)
+            if tp_id not in korilgan
+        ]
+        for i in range(0, len(qolgan), 900):
+            ketdi += TP.objects.filter(pk__in=qolgan[i : i + 900]).update(brigada=None)
     yuklama.qatorlar = len(korilgan)
-    return f"{len(korilgan)} ta TP o'qildi, {yangi_tp} ta yangi TP, {yangi_br} ta yangi brigada."
+    return (f"{len(korilgan)} ta TP o'qildi: {yangi_tp} ta yangi TP qo'shildi, {len(upd)} ta TP brigadaga biriktirildi/ko'chirildi, "
+            f"{ketdi} ta TP faylda yo'qligi uchun brigadadan chiqarildi, {yangi_br} ta yangi brigada. "
+            f"Mavjud brigada nomlari va hodimlar saqlandi.")
 
 
 def import_online(path, header, yuklama, res):
@@ -531,6 +546,58 @@ def fonda_boshlash(ishlar):
     t = threading.Thread(target=_ishchi, args=(ishlar,), daemon=True)
     t.start()
     return t
+
+
+def _aniqla_xom(ish):
+    """Yuklangan faylning turi va sanasini (orqa fonda) aniqlaydi. Tayyor ish yoki None (xato bo'lsa) qaytaradi."""
+    y = Yuklama.objects.get(pk=ish["yuklama_id"])
+    try:
+        info = aniqlash(ish["path"], ish.get("fayl_nomi", ""), ish.get("majburiy"))
+    except ImportXato as e:
+        y.holat, y.xabar = "xato", str(e)
+        y.save()
+        return None
+    except Exception as e:  # noqa
+        y.holat, y.xabar = "xato", f"{type(e).__name__}: {e}"
+        y.save()
+        return None
+    sana = (info["sana"] if ish.get("fayldan") and info["sana"] else None) or ish.get("forma_sana") or datetime.date.today()
+    y.tur, y.sana, y.xabar = info["tur"], sana, "Navbatda..."
+    y.save()
+    return {"yuklama_id": y.id, "path": ish["path"], "header": info["header"], "tur": info["tur"]}
+
+
+def _ishchi_xom(xom):
+    try:
+        tayyor = []
+        for ish in xom:
+            j = None
+            try:
+                j = _aniqla_xom(ish)
+            except Exception:  # noqa
+                traceback.print_exc()
+            if j:
+                tayyor.append(j)
+            else:
+                try:
+                    os.remove(ish["path"])
+                except OSError:
+                    pass
+        _ishchi(tayyor)
+    finally:
+        connection.close()
+
+
+def fonda_boshlash_xom(xom):
+    """Fayl turini aniqlash ham, qayta ishlash ham orqa fonda: so'rov faqat faylni saqlab, darhol javob qaytaradi."""
+    t = threading.Thread(target=_ishchi_xom, args=(xom,), daemon=True)
+    t.start()
+    return t
+
+
+def sinxron_xom(xom):
+    tayyor = [j for j in (_aniqla_xom(ish) for ish in xom) if j]
+    sinxron(tayyor)
 
 
 def sinxron(ishlar):

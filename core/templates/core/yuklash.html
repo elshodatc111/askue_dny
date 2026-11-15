@@ -26,15 +26,20 @@
     <label style="display:flex;gap:8px;align-items:center;margin-top:14px;font-size:13px">
       <input type="checkbox" name="fayldan" value="1" checked> Faylning o'zida sana bo'lsa (masalan, fayl nomidagi 12112026) shuni olish
     </label>
-    <p style="margin-top:18px"><button class="btn" type="submit"><svg class="ic"><use href="#i-upload"/></svg> Yuklash va qayta ishlash</button></p>
+    <div id="yuk-prog" hidden style="margin-top:16px">
+      <div class="flex" style="justify-content:space-between;font-size:12.5px"><b id="yuk-prog-t">Yuklanmoqda…</b><span id="yuk-prog-p" class="muted">0%</span></div>
+      <div class="bar" style="margin-top:6px"><i id="yuk-prog-i" style="width:0%"></i></div>
+      <div class="muted" style="font-size:12px;margin-top:6px" id="yuk-prog-h">Fayl serverga yuborilmoqda. Yuborish tugaguncha sahifani yopmang; keyin qayta ishlash serverda fonda davom etadi.</div>
+    </div>
+    <p style="margin-top:18px"><button class="btn" type="submit" id="yuk-btn"><svg class="ic"><use href="#i-upload"/></svg> Yuklash va qayta ishlash</button></p>
   </form>{% else %}<div class="card"><h3>Fayl yuklash</h3><div class="sub">Sizda fayl yuklash ruxsati yo'q, faqat yuklamalar tarixini ko'rishingiz mumkin.</div></div>{% endif %}
   <div class="card">
     <h3>Qanday ishlaydi</h3>
     <ol class="muted" style="padding-left:18px;line-height:1.7;margin:8px 0 0">
-      <li><b>Hududiy tuzilma</b> (Area Information Report): TP lar va brigadalar. Odatda bir marta yuklanadi, brigadalar shundan yaratiladi.</li>
+      <li><b>Hududiy tuzilma</b> (Area Information Report): TP lar va brigadalar. Qayta yuklansa, Brigadalar bo'limida kiritilgan brigada nomlari va hodimlar (F.I.Sh.) saqlanib qoladi; faqat brigadalarga biriktirilgan TP lar yangilanadi: faylda yo'qlari brigadadan chiqariladi, yangilari qo'shiladi.</li>
       <li>Har kuni 4 ta fayl: konsentratorlar, GPRS hisoblagichlar, aloqadan chiqib ketgan hisoblagichlar, to'g'ridan-to'g'ri ulanishlar (Primichka).</li>
       <li>Bir xil tur va sana qayta yuklansa, eskisi almashtiriladi.</li>
-      <li>Katta fayllar orqa fonda qayta ishlanadi (1-2 daqiqa), sahifani yopsangiz ham davom etadi.</li>
+      <li>Fayl brauzerdan serverga yuborilgach (jarayon pastki chiziqda ko'rinadi) turini aniqlash va qayta ishlash serverda orqa fonda bajariladi (1-2 daqiqa), sahifani yopsangiz ham davom etadi.</li>
     </ol>
   </div>
 </div>
@@ -46,7 +51,7 @@
     <tbody id="tarix">
     {% for y in royxat %}
       <tr data-id="{{ y.id }}">
-        <td><b>{{ y.sana|kun }}</b></td><td>{{ y.get_tur_display }}</td><td class="wrap">{{ y.fayl_nomi }}</td>
+        <td><b>{{ y.sana|kun }}</b></td><td>{% if y.tur == 'kutilmoqda' %}Aniqlanmoqda…{% else %}{{ y.get_tur_display }}{% endif %}</td><td class="wrap">{{ y.fayl_nomi }}</td>
         <td><span class="stat-badge {{ y.holat }}">{{ y.get_holat_display }}</span></td><td class="son">{{ y.qatorlar|fmt }}</td>
         <td class="wrap muted" style="font-size:12px">{{ y.xabar|truncatechars:160 }}</td>
         <td>{% if y.yuklagan %}{{ y.yuklagan.first_name|default:y.yuklagan.username }}{% else %}-{% endif %}</td><td>{{ y.vaqt|sana_vaqt }}</td>
@@ -65,6 +70,36 @@
   ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
   ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
   drop.addEventListener('drop', function (e) { inp.files = e.dataTransfer.files; show(); });
+  // ---- faylni sahifani qayta yuklamasdan (AJAX) yuborish: jarayon ko'rinib turadi ----
+  var forma = document.getElementById('yuk-forma');
+  if (forma && window.XMLHttpRequest && window.FormData) {
+    var yuboryapti = false;
+    window.addEventListener('beforeunload', function (e) { if (yuboryapti) { e.preventDefault(); e.returnValue = ''; } });
+    forma.addEventListener('submit', function (e) {
+      if (!inp.files.length) return;  // oddiy yuborish: "Fayl tanlanmadi" xabari chiqadi
+      e.preventDefault();
+      var box = document.getElementById('yuk-prog'), bar = document.getElementById('yuk-prog-i'), pr = document.getElementById('yuk-prog-p'),
+          tt = document.getElementById('yuk-prog-t'), hh = document.getElementById('yuk-prog-h'), btn = document.getElementById('yuk-btn');
+      box.hidden = false; btn.disabled = true; yuboryapti = true; bar.style.width = '0%'; tt.textContent = 'Yuklanmoqda…';
+      var x = new XMLHttpRequest();
+      x.open('POST', forma.getAttribute('action') || location.href);
+      x.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+      x.upload.onprogress = function (ev) {
+        if (!ev.lengthComputable) return;
+        var p = Math.round(ev.loaded * 100 / ev.total); bar.style.width = p + '%'; pr.textContent = p + '% (' + Math.round(ev.loaded / 1048576 * 10) / 10 + ' / ' + Math.round(ev.total / 1048576 * 10) / 10 + ' MB)';
+        if (p >= 100) tt.textContent = 'Server qabul qilmoqda…';
+      };
+      function xato(m) { yuboryapti = false; btn.disabled = false; tt.textContent = 'Xato'; hh.textContent = m; hh.style.color = 'var(--bad)'; }
+      x.onload = function () {
+        var d = null; try { d = JSON.parse(x.responseText); } catch (er) {}
+        if (x.status === 200 && d && d.ok) { yuboryapti = false; tt.textContent = 'Qabul qilindi. Qayta ishlash serverda fonda boshlandi.'; bar.style.width = '100%'; setTimeout(function () { location.reload(); }, 600); }
+        else if (x.status === 403) xato('Ruxsat yo\'q yoki sessiya tugagan. Sahifani yangilab qayta kiring.');
+        else xato('Server xatosi (' + x.status + '). Qayta urinib ko\'ring.');
+      };
+      x.onerror = function () { xato('Tarmoq xatosi: fayl yuborilmadi. Aloqani tekshirib qayta urinib ko\'ring.'); };
+      x.send(new FormData(forma));
+    });
+  }
   var bor = document.querySelector('.stat-badge.jarayonda');
   if (bor) {
     (function poll() {

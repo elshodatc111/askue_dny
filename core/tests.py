@@ -615,3 +615,158 @@ class RespFonTest(TestCase):
         r = self.client.post(reverse("resp_yuklash"), {"fayllar": self._pdf(PDF12, "12.pdf")})  # JS siz (eski usul)
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "O'qildi")
+
+
+# ---------------------------------------------------------------- 2026-11-15 tuzatishlar
+AREA_H = ["№", "X", "Y", "Z", "ESP", "a", "Podst", "b", "Feeder", "c", "TP", "Egasi", "Mas'ul", "Hudud", "ID", "Tel"]
+
+
+def _area_qator(esp, tr, mgr, feeder="F1 10 kV"):
+    return [1, "10000", "Q", "10245", esp, "1", "NS A 35/10 kV", "1", feeder, f"{int(tr):05d}", tr, "ESP", mgr, "H", "30801772560032", "+998901234567"]
+
+
+@override_settings(UPLOAD_DIR="/tmp")
+class AreaQaytaYuklashTest(TestCase):
+    def setUp(self):
+        import tempfile
+
+        self.d = tempfile.mkdtemp()
+
+    def _yukla(self, qatorlar, sana):
+        _xlsx(f"{self.d}/area.xlsx", AREA_H, qatorlar)
+        info = importer.aniqlash(f"{self.d}/area.xlsx", "area.xlsx")
+        y = Yuklama.objects.create(tur=info["tur"], sana=sana)
+        importer.sinxron([{"yuklama_id": y.id, "path": f"{self.d}/area.xlsx", "header": info["header"], "tur": info["tur"]}])
+        return Yuklama.objects.get(pk=y.pk)
+
+    def test_nomlar_saqlanadi_tp_lar_yangilanadi(self):
+        from .models import Hodim
+
+        self._yukla([_area_qator("Koson TETK", "1", "Ali Vali, Guli Gul"), _area_qator("Koson TETK", "2", "Ali Vali, Guli Gul"),
+                     _area_qator("Koson TETK", "3", "Vali Ali")], datetime.date(2026, 11, 12))
+        b1 = Brigada.objects.get(tuman__nom="Koson TETK", manba="Ali Vali, Guli Gul")
+        b2 = Brigada.objects.get(tuman__nom="Koson TETK", manba="Vali Ali")
+        # foydalanuvchi nom va hodimlarni o'zgartiradi
+        b1.nom, b1.telefon = "Mening brigadam", "99-111"
+        b1.save()
+        b1.hodimlar.all().delete()
+        Hodim.objects.create(brigada=b1, ism="Yangi Ism Familiya")
+        # TP 4 qo'lda boshqa brigadaga ko'chirilgan edi
+        # yangi fayl: TP 2 yo'q, TP 3 endi birinchi brigadada, TP 4 yangi
+        y = self._yukla([_area_qator("Koson TETK", "1", "Ali Vali, Guli Gul"), _area_qator("Koson TETK", "3", "Ali Vali, Guli Gul"),
+                         _area_qator("Koson TETK", "4", "Ali Vali, Guli Gul")], datetime.date(2026, 11, 13))
+        self.assertEqual(y.holat, "tayyor", y.xabar)
+        b1.refresh_from_db()
+        self.assertEqual((b1.nom, b1.telefon), ("Mening brigadam", "99-111"))
+        self.assertEqual([h.ism for h in b1.hodimlar.all()], ["Yangi Ism Familiya"])
+        self.assertEqual(Brigada.objects.filter(tuman__nom="Koson TETK").count(), 2)
+        tr = lambda x: TP.objects.get(raqam=x)
+        self.assertEqual({tr("1").brigada_id, tr("3").brigada_id, tr("4").brigada_id}, {b1.id})
+        self.assertIsNone(tr("2").brigada_id)  # faylda yo'q: brigadadan chiqdi
+        self.assertEqual(TP.objects.count(), 4)  # TP yozuvi (tarix) o'chmaydi
+        self.assertEqual(b2.tplar.count(), 0)
+        self.assertIn("brigadadan chiqarildi", y.xabar)
+
+
+@override_settings(UPLOAD_DIR="/tmp")
+class FonYuklashTest(TestCase):
+    def setUp(self):
+        import tempfile
+
+        User.objects.create_superuser("admin", password="Admin@12345")
+        self.client.login(username="admin", password="Admin@12345")
+        self.d = tempfile.mkdtemp()
+
+    def test_ajax_yuklash_darhol_javob_beradi_va_fonda_ishlanadi(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        _xlsx(f"{self.d}/area.xlsx", AREA_H, [_area_qator("Koson TETK", "1", "Ali Vali")])
+        _xlsx(f"{self.d}/x.xlsx", ["a", "b"], [[1, 2]])
+        navbat = []
+        with mock.patch.object(importer, "fonda_boshlash_xom", lambda xom: navbat.append(xom)):
+            with open(f"{self.d}/area.xlsx", "rb") as f1, open(f"{self.d}/x.xlsx", "rb") as f2:
+                r = self.client.post(reverse("yuklash"), {"fayllar": [SimpleUploadedFile("area.xlsx", f1.read()), SimpleUploadedFile("x.xlsx", f2.read())],
+                                                          "sana": "2026-11-12", "fayldan": "1"}, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        self.assertEqual((r.status_code, r.json()), (200, {"ok": True, "soni": 2}))
+        # so'rovda faqat saqlandi: tur hali aniqlanmagan
+        self.assertEqual(list(Yuklama.objects.values_list("tur", "holat")), [("kutilmoqda", "jarayonda")] * 2)
+        importer.sinxron_xom(navbat[0])
+        h = {y.fayl_nomi: y for y in Yuklama.objects.all()}
+        self.assertEqual((h["area.xlsx"].tur, h["area.xlsx"].holat), ("area", "tayyor"))
+        self.assertEqual(h["x.xlsx"].holat, "xato")
+        self.assertTrue(h["x.xlsx"].xabar)
+        self.assertContains(self.client.get(reverse("yuklash")), "yuk-prog")
+
+
+class TelegramQoshTest(TestCase):
+    def test_nomzodlar(self):
+        n = T.chat_nomzodlari
+        self.assertEqual(n(" -1001234567890 "), ["-1001234567890"])
+        self.assertEqual(n("1234567890"), ["-1001234567890", "-1234567890"])
+        self.assertEqual(n("-1234567890"), ["-1234567890", "-1001234567890"])
+        self.assertEqual(n("-4567"), ["-4567"])
+        self.assertEqual(n("https://t.me/guruh_nomi"), ["@guruh_nomi"])
+        self.assertEqual(n("https://t.me/c/1234567890/5"), ["-1001234567890"])
+        self.assertEqual(n("guruh_nomi"), ["@guruh_nomi"])
+        with self.assertRaises(T.TgXato):
+            n("https://t.me/+AbCdEf")
+        with self.assertRaises(T.TgXato):
+            n("salom dunyo!")
+
+    def test_ikkinchi_guruhni_qoshish(self):
+        User.objects.create_superuser("admin", password="Admin@12345")
+        self.client.login(username="admin", password="Admin@12345")
+        sz = TelegramSozlama.olish()
+        sz.bot_token = "123:ABC"
+        sz.save()
+        TelegramGuruh.objects.create(nom="Kunlik malumot", chat_id="-1004489766945", tur="supergroup")
+        chaqiruvlar = []
+
+        def soxta(token, metod, maydonlar=None, fayl=None, timeout=60):
+            chaqiruvlar.append(maydonlar["chat_id"])
+            cid = maydonlar["chat_id"]
+            if cid == "-555":  # oddiy guruh supergruppaga aylangan
+                raise T.TgXato("Bad Request: group chat was upgraded to a supergroup chat", 400, {"migrate_to_chat_id": -1007770000001})
+            if cid == "-1007770000001":
+                return {"id": -1007770000001, "title": "Ikkinchi guruh", "type": "supergroup"}
+            if cid == "-1009990000002":
+                return {"id": -1009990000002, "title": "Uchinchi guruh", "type": "supergroup"}
+            raise T.TgXato("Bad Request: chat not found", 400)
+
+        with mock.patch.object(T, "_chaqir", soxta):
+            self.client.post(reverse("sozlamalar"), {"amal": "qosh", "chat_id": "-555"})
+            self.assertTrue(TelegramGuruh.objects.filter(chat_id="-1007770000001", nom="Ikkinchi guruh").exists())
+            # -100 siz kiritilgan ID ham topiladi
+            self.client.post(reverse("sozlamalar"), {"amal": "qosh", "chat_id": "9990000002"})
+            self.assertTrue(TelegramGuruh.objects.filter(chat_id="-1009990000002").exists())
+            # topilmasa tushunarli xato, xabar yo'qolmaydi
+            r = self.client.post(reverse("sozlamalar"), {"amal": "qosh", "chat_id": "-1000000000000"}, follow=True)
+            self.assertContains(r, "Guruh topilmadi")
+        self.assertEqual(TelegramGuruh.objects.count(), 3)
+
+
+class BrigadalarMenyuTest(TestCase):
+    def setUp(self):
+        User.objects.create_superuser("admin", password="Admin@12345")
+        self.client.login(username="admin", password="Admin@12345")
+        self.t1 = Tuman.objects.create(nom="Koson TETK", qisqa="Koson t.", tartib=1)
+        self.t2 = Tuman.objects.create(nom="Qarshi TETK", qisqa="Qarshi t.", tartib=2)
+        Brigada.objects.create(tuman=self.t1, raqam=1, nom="Koson brigada A")
+        Brigada.objects.create(tuman=self.t2, raqam=1, nom="Qarshi brigada B")
+        Brigada.objects.create(tuman=self.t2, raqam=2, nom="Qarshi brigada C")
+
+    def test_boshida_barchasi_chiqadi(self):
+        r = self.client.get(reverse("brigadalar"))
+        for nom in ("Koson brigada A", "Qarshi brigada B", "Qarshi brigada C"):
+            self.assertContains(r, nom)
+        self.assertContains(r, "Barcha brigadalar")
+        self.assertNotContains(r, 'class="tabs"')  # yuqoridagi tuman tugmalari endi yon menyuda
+        self.assertContains(r, 'class="subnav"')
+        self.assertContains(r, f"?tuman={self.t2.id}")
+
+    def test_tuman_filtri(self):
+        r = self.client.get(reverse("brigadalar"), {"tuman": self.t2.id})
+        self.assertContains(r, "Qarshi brigada B")
+        self.assertNotContains(r, "Koson brigada A")
+        r = self.client.get(reverse("brigadalar"), {"tuman": "xato"})
+        self.assertContains(r, "Koson brigada A")

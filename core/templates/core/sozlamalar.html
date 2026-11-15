@@ -51,7 +51,7 @@
     </tbody></table></div>
   {% if rx.sozlamalar_tahrirlash and token_bor %}
   <form method="post" class="flex" style="gap:8px;margin-top:14px;align-items:stretch">{% csrf_token %}<input type="hidden" name="amal" value="qosh">
-    <input type="text" name="chat_id" placeholder="Chat ID ni qo'lda qo'shish (masalan -1001234567890)" style="flex:1;min-width:240px">
+    <input type="text" name="chat_id" placeholder="Chat ID ni qo'lda qo'shish (masalan -1001234567890 yoki @guruh_nomi)" style="flex:1;min-width:240px">
     <button class="btn sec" type="submit">Qo'shish</button>
   </form>{% endif %}
 </div>

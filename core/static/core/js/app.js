@@ -50,9 +50,11 @@
   }, 150);
 
   // ---- xabarlar avtomatik yo'qolishi ----
+  // (xato xabarlari yo'qolmaydi, bosilganda yopiladi - foydalanuvchi o'qib ulgurishi uchun)
   setTimeout(function () {
-    document.querySelectorAll('.toast').forEach(function (t) { t.style.transition = 'opacity .5s'; t.style.opacity = 0; setTimeout(function () { t.remove(); }, 600); });
+    document.querySelectorAll('.toast:not(.error)').forEach(function (t) { t.style.transition = 'opacity .5s'; t.style.opacity = 0; setTimeout(function () { t.remove(); }, 600); });
   }, 6500);
+  document.addEventListener('click', function (e) { var t = e.target.closest('.toast.error'); if (t) t.remove(); });
 
   // ---- hammasini tanlash ----
   var all = document.getElementById('hammasi');

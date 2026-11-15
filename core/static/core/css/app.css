@@ -29,6 +29,10 @@ a:hover { text-decoration: underline; }
 .nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin: 2px 0; border-radius: 10px; color: var(--side-text); text-decoration: none; transition: background .2s, color .2s, transform .2s; }
 .nav a:hover { background: rgba(255,255,255,.07); color: #fff; transform: translateX(2px); }
 .nav a.on { background: linear-gradient(90deg, rgba(79,70,229,.9), rgba(124,58,237,.75)); color: #fff; box-shadow: 0 6px 16px rgba(79,70,229,.35); }
+.nav .subnav { margin: 2px 0 6px 22px; padding-left: 10px; border-left: 1px solid rgba(255,255,255,.12); }
+.nav .subnav a { padding: 6px 10px; margin: 1px 0; font-size: 12.5px; gap: 6px; justify-content: space-between; border-radius: 8px; }
+.nav .subnav a .n { font-size: 10.5px; opacity: .65; background: rgba(255,255,255,.09); border-radius: 99px; padding: 1px 7px; }
+.nav .subnav a.on { box-shadow: none; }
 .side-foot { padding: 14px 16px; border-top: 1px solid rgba(255,255,255,.08); font-size: 12.5px; }
 .side-foot .u { color: #fff; font-weight: 600; }
 .side-foot .r { color: #94a3b8; font-size: 11.5px; }
